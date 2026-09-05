@@ -1,0 +1,57 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "distinctstarschoolsdevices@gmail.com",
+      "password_hash": "$2a$10$DU9gk28rr6LajKUalNBs7.GfpD.HzLeQkPDZ6QsvKKuPntwK2MkmW",
+      "email_verified": true,
+      "otp_code": null,
+      "otp_expires_at": null,
+      "plan": "ultra",
+      "bot_allowance": 999,
+      "message_allowance": 999999999,
+      "plan_expires_at": "2126-08-12T02:41:12.161Z",
+      "renewal_type": "one-off",
+      "currency": "USD",
+      "created_at": "2026-09-05T02:40:12.745Z"
+    }
+  ],
+  "admin_settings": [
+    {
+      "key": "tiktok",
+      "value": ""
+    },
+    {
+      "key": "admin_password",
+      "value": "2712"
+    },
+    {
+      "key": "telegram",
+      "value": "@Wanfortindustries"
+    },
+    {
+      "key": "x",
+      "value": ""
+    },
+    {
+      "key": "farcaster",
+      "value": ""
+    },
+    {
+      "key": "linkedin",
+      "value": ""
+    },
+    {
+      "key": "github",
+      "value": ""
+    },
+    {
+      "key": "discord",
+      "value": ""
+    }
+  ],
+  "payments": [],
+  "bots": [],
+  "chat_logs": [],
+  "updatedAt": "2026-09-05T02:42:24.368Z"
+}

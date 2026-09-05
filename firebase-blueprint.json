@@ -27,6 +27,32 @@
         }
       },
       "required": ["prices"]
+    },
+    "users": {
+      "title": "User Account",
+      "description": "User profile, plan subscription, allowances, and status",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "email_verified": { "type": "boolean" },
+        "plan": { "type": "string" },
+        "bot_allowance": { "type": "number" },
+        "message_allowance": { "type": "number" },
+        "plan_expires_at": { "type": "string" },
+        "currency": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/pricing_config/{configId}": {
+      "schema": "pricing_config",
+      "description": "Global pricing configuration"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User accounts and permissions"
     }
   }
 }

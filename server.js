@@ -51,6 +51,63 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ─── FIRESTORE CLOUD DATABASE ──────────────────────────────────────────────────
+let firestoreDb = null;
+try {
+  const { initializeApp, getApps } = require('firebase/app');
+  const { getFirestore } = require('firebase/firestore');
+  const fbConfigPath = path.join(__dirname, 'firebase-applet-config.json');
+  if (fs.existsSync(fbConfigPath)) {
+    const fbConfig = JSON.parse(fs.readFileSync(fbConfigPath, 'utf8'));
+    const fbApp = getApps().length === 0 ? initializeApp(fbConfig) : getApps()[0];
+    firestoreDb = getFirestore(fbApp, fbConfig.firestoreDatabaseId);
+    console.log('[Firebase] Firestore initialized on database:', fbConfig.firestoreDatabaseId);
+  }
+} catch (fbErr) {
+  console.warn('[Firebase] Firestore init warning:', fbErr.message);
+}
+
+const PRIMARY_ADMIN_EMAIL = 'distinctstarschoolsdevices@gmail.com';
+
+async function syncUserToFirestore(userObj) {
+  if (!firestoreDb || !userObj || !userObj.email) return;
+  try {
+    const { doc, setDoc } = require('firebase/firestore');
+    const docId = String(userObj.email).toLowerCase().trim();
+    await setDoc(doc(firestoreDb, 'users', docId), {
+      id: userObj.id,
+      email: userObj.email,
+      email_verified: !!userObj.email_verified,
+      plan: userObj.plan || 'free',
+      bot_allowance: Number(userObj.bot_allowance) || 0,
+      message_allowance: Number(userObj.message_allowance) || 0,
+      plan_expires_at: userObj.plan_expires_at ? new Date(userObj.plan_expires_at).toISOString() : null,
+      currency: userObj.currency || 'USD',
+      created_at: userObj.created_at ? new Date(userObj.created_at).toISOString() : new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, { merge: true });
+  } catch (err) {
+    console.error('syncUserToFirestore error:', err.message);
+  }
+}
+
+async function fetchFirestoreUsers() {
+  if (!firestoreDb) return [];
+  try {
+    const { collection, getDocs } = require('firebase/firestore');
+    const snap = await getDocs(collection(firestoreDb, 'users'));
+    const list = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data && data.email) list.push(data);
+    });
+    return list;
+  } catch (err) {
+    console.error('fetchFirestoreUsers error:', err.message);
+    return [];
+  }
+}
+
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
 let pool;
 let isUsingMemDb = false;
@@ -314,6 +371,33 @@ async function initDB() {
 
     if (isUsingMemDb) {
       await loadDiskStorage();
+    }
+
+    // Ensure primary user exists and is verified in both SQL and Firestore
+    try {
+      const checkPrimary = await pool.query('SELECT id, email_verified, plan FROM users WHERE LOWER(email)=$1', [PRIMARY_ADMIN_EMAIL.toLowerCase()]);
+      if (checkPrimary.rows.length === 0) {
+        const defaultHash = await bcrypt.hash('2712', 10);
+        const ins = await pool.query(`
+          INSERT INTO users (email, password_hash, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency)
+          VALUES ($1, $2, TRUE, 'ultra', 999, 999999999, NOW() + INTERVAL '10 years', 'USD')
+          RETURNING *
+        `, [PRIMARY_ADMIN_EMAIL.toLowerCase(), defaultHash]);
+        console.log('[Database] Seeded primary user:', PRIMARY_ADMIN_EMAIL);
+        if (ins.rows[0]) {
+          await syncUserToFirestore(ins.rows[0]);
+          await saveDiskStorage();
+        }
+      } else {
+        if (!checkPrimary.rows[0].email_verified) {
+          await pool.query('UPDATE users SET email_verified=TRUE WHERE id=$1', [checkPrimary.rows[0].id]);
+          await saveDiskStorage();
+        }
+        const row = (await pool.query('SELECT * FROM users WHERE id=$1', [checkPrimary.rows[0].id])).rows[0];
+        if (row) await syncUserToFirestore(row);
+      }
+    } catch (e) {
+      console.warn('[Database] Primary user seeding warning:', e.message);
     }
 
     console.log('[Database] Database initialized');
@@ -580,11 +664,13 @@ app.post('/api/auth/signup', async (req, res) => {
         [hash, otp, expires, userCurrency, email]
       );
     } else {
-      // New user — insert as unverified
+      // New user — insert as unverified with safe calculated next ID
+      const nextIdRes = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM users');
+      const nextId = nextIdRes.rows[0].next_id;
       await pool.query(
-        `INSERT INTO users (email, password_hash, otp_code, otp_expires_at, email_verified, currency)
-         VALUES ($1,$2,$3,$4,FALSE,$5)`,
-        [email, hash, otp, expires, userCurrency]
+        `INSERT INTO users (id, email, password_hash, otp_code, otp_expires_at, email_verified, currency)
+         VALUES ($1,$2,$3,$4,$5,FALSE,$6)`,
+        [nextId, email, hash, otp, expires, userCurrency]
       );
     }
 
@@ -704,12 +790,18 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     }
 
     const trialExpires = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    await pool.query(
+    const updRes = await pool.query(
       `UPDATE users SET email_verified=TRUE, otp_code=NULL, otp_expires_at=NULL,
        plan='trial', bot_allowance=2, message_allowance=5000, plan_expires_at=$1
-       WHERE LOWER(email)=$2`,
+       WHERE LOWER(email)=$2
+       RETURNING *`,
       [trialExpires, email]
     );
+
+    if (updRes.rows[0]) {
+      await syncUserToFirestore(updRes.rows[0]);
+      await saveDiskStorage();
+    }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({
@@ -1101,13 +1193,142 @@ app.post('/api/admin/update-payments', async (req, res) => {
 
 app.get('/api/admin/users', async (req, res) => {
   try {
+    // 1. Ensure primary admin user is seeded and verified
+    const checkPrimary = await pool.query('SELECT id, email_verified FROM users WHERE LOWER(email)=$1', [PRIMARY_ADMIN_EMAIL.toLowerCase()]);
+    if (checkPrimary.rows.length === 0) {
+      const defaultHash = await bcrypt.hash('2712', 10);
+      const seeded = await pool.query(`
+        INSERT INTO users (email, password_hash, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency)
+        VALUES ($1, $2, TRUE, 'ultra', 999, 999999999, NOW() + INTERVAL '10 years', 'USD')
+        RETURNING id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at
+      `, [PRIMARY_ADMIN_EMAIL.toLowerCase(), defaultHash]);
+      if (seeded.rows[0]) {
+        await syncUserToFirestore(seeded.rows[0]);
+        await saveDiskStorage();
+      }
+    } else if (!checkPrimary.rows[0].email_verified) {
+      await pool.query('UPDATE users SET email_verified=TRUE WHERE id=$1', [checkPrimary.rows[0].id]);
+      await saveDiskStorage();
+    }
+
+    // 2. Fetch all users from SQL DB
     const result = await pool.query(
-      `SELECT id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, created_at
+      `SELECT id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at
        FROM users ORDER BY created_at DESC`
     );
-    res.json(result.rows);
+    let allUsers = result.rows || [];
+
+    // 3. Bidirectional sync with Firestore users
+    try {
+      const fsUsers = await fetchFirestoreUsers();
+      let hasNew = false;
+      for (const fsu of fsUsers) {
+        if (fsu.email && !allUsers.some(u => u.email.toLowerCase() === fsu.email.toLowerCase())) {
+          const fakeHash = await bcrypt.hash('2712', 10);
+          const ins = await pool.query(`
+            INSERT INTO users (email, password_hash, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at
+          `, [
+            fsu.email.toLowerCase(), fakeHash, fsu.email_verified !== false,
+            fsu.plan || 'free', Number(fsu.bot_allowance) || 0, Number(fsu.message_allowance) || 0,
+            fsu.plan_expires_at ? new Date(fsu.plan_expires_at) : null,
+            fsu.currency || 'USD', fsu.created_at ? new Date(fsu.created_at) : new Date()
+          ]);
+          if (ins.rows[0]) {
+            allUsers.push(ins.rows[0]);
+            hasNew = true;
+          }
+        }
+      }
+      if (hasNew) await saveDiskStorage();
+    } catch (fsErr) {
+      console.warn('Firestore user fetch warning:', fsErr.message);
+    }
+
+    // Background sync all current users to Firestore
+    for (const u of allUsers) {
+      syncUserToFirestore(u).catch(() => {});
+    }
+
+    res.json(allUsers);
   } catch (err) {
+    console.error('Failed to fetch users:', err);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.post('/api/admin/add-user', async (req, res) => {
+  const { email, plan, password, currency } = req.body;
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ error: 'A valid email is required' });
+  }
+  const cleanEmail = email.toLowerCase().trim();
+  const selectedPlan = (plan || 'starter').toLowerCase();
+  const userCurrency = currency || 'USD';
+
+  try {
+    const existing = await pool.query('SELECT id FROM users WHERE LOWER(email)=$1', [cleanEmail]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'A user with this email already exists' });
+    }
+
+    const planConfig = await getPlanConfig();
+    const cfg = planConfig[selectedPlan] || planConfig['starter'] || { bots: 1, messages: 500, days: 30 };
+    const expiresAt = new Date(Date.now() + (cfg.days || 30) * 86400000);
+    const hash = await bcrypt.hash(password || '2712', 10);
+
+    const nextIdRes = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM users');
+    const nextId = nextIdRes.rows[0].next_id;
+
+    const result = await pool.query(`
+      INSERT INTO users (id, email, password_hash, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency)
+      VALUES ($1, $2, $3, TRUE, $4, $5, $6, $7, $8)
+      RETURNING id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at
+    `, [nextId, cleanEmail, hash, selectedPlan, cfg.bots, cfg.messages, expiresAt, userCurrency]);
+
+    const newUser = result.rows[0];
+    await syncUserToFirestore(newUser);
+    await saveDiskStorage();
+
+    res.json({ message: `User ${cleanEmail} created successfully with ${selectedPlan.toUpperCase()} plan`, user: newUser });
+  } catch (err) {
+    console.error('Admin add-user error:', err);
+    res.status(500).json({ error: 'Failed to add user: ' + (err.message || String(err)) });
+  }
+});
+
+app.post('/api/admin/update-user-plan', async (req, res) => {
+  const { user_id, plan } = req.body;
+  if (!user_id || !plan) {
+    return res.status(400).json({ error: 'user_id and plan are required' });
+  }
+  const selectedPlan = plan.toLowerCase();
+
+  try {
+    const planConfig = await getPlanConfig();
+    const cfg = planConfig[selectedPlan] || { bots: 1, messages: 500, days: 30 };
+    const expiresAt = new Date(Date.now() + (cfg.days || 30) * 86400000);
+
+    const result = await pool.query(`
+      UPDATE users
+      SET plan=$1, bot_allowance=$2, message_allowance=$3, plan_expires_at=$4
+      WHERE id=$5
+      RETURNING id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at
+    `, [selectedPlan, cfg.bots, cfg.messages, expiresAt, user_id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updatedUser = result.rows[0];
+    await syncUserToFirestore(updatedUser);
+    await saveDiskStorage();
+
+    res.json({ message: `User plan updated to ${selectedPlan.toUpperCase()}`, user: updatedUser });
+  } catch (err) {
+    console.error('Update user plan error:', err);
+    res.status(500).json({ error: 'Failed to update user plan' });
   }
 });
 
@@ -1115,10 +1336,15 @@ app.post('/api/admin/verify-user', async (req, res) => {
   const { user_id } = req.body;
   if (!user_id) return res.status(400).json({ error: 'user_id required' });
   try {
-    await pool.query(
-      `UPDATE users SET email_verified=TRUE, otp_code=NULL, otp_expires_at=NULL WHERE id=$1`,
+    const result = await pool.query(
+      `UPDATE users SET email_verified=TRUE, otp_code=NULL, otp_expires_at=NULL WHERE id=$1
+       RETURNING id, email, email_verified, plan, bot_allowance, message_allowance, plan_expires_at, currency, created_at`,
       [user_id]
     );
+    if (result.rows[0]) {
+      await syncUserToFirestore(result.rows[0]);
+      await saveDiskStorage();
+    }
     res.json({ message: 'User verified successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to verify user' });
@@ -1129,8 +1355,20 @@ app.post('/api/admin/delete-user', async (req, res) => {
   const { user_id } = req.body;
   if (!user_id) return res.status(400).json({ error: 'user_id required' });
   try {
+    const userRes = await pool.query('SELECT email FROM users WHERE id=$1', [user_id]);
+    const userEmail = userRes.rows[0]?.email;
+
     await pool.query('DELETE FROM payments WHERE user_id=$1', [user_id]);
     await pool.query('DELETE FROM users WHERE id=$1', [user_id]);
+
+    if (userEmail && firestoreDb) {
+      try {
+        const { doc, deleteDoc } = require('firebase/firestore');
+        await deleteDoc(doc(firestoreDb, 'users', userEmail.toLowerCase().trim()));
+      } catch (e) {}
+    }
+    await saveDiskStorage();
+
     res.json({ message: 'User deleted' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete user' });

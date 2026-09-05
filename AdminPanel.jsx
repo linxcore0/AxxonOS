@@ -7,7 +7,7 @@ import {
   Tag, CreditCard, KeyRound, Users, Bot, Share2, Lock, BarChart3, Activity,
   ArrowLeft, RefreshCw, Trash2, Edit3, ExternalLink, Globe, DollarSign,
   Target, AlertTriangle, Clock, Search, Zap, Check, X, ShieldAlert, Coins,
-  ArrowDown, ArrowUp, ArrowRight
+  ArrowDown, ArrowUp, ArrowRight, UserPlus, Star, UserCheck
 } from "lucide-react";
 
 const API = "";
@@ -26,6 +26,12 @@ export default function AdminPanel({ onBack }) {
   const [users, setUsers]               = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userMsg, setUserMsg]           = useState({ text:"", ok:false });
+  const [userSearch, setUserSearch]     = useState("");
+  const [showAddUser, setShowAddUser]   = useState(false);
+  const [newEmail, setNewEmail]         = useState("");
+  const [newPlan, setNewPlan]           = useState("starter");
+  const [newUserPw, setNewUserPw]       = useState("2712");
+  const [addingUser, setAddingUser]     = useState(false);
 
   // Payment settings
   const [planAPIs, setPlanAPIs] = useState({ starter:"", basic:"", spark:"", super:"", king:"", ultra:"" });
@@ -100,8 +106,15 @@ export default function AdminPanel({ onBack }) {
       if (markup_percent !== undefined) setMarkupPercent(markup_percent);
     });
     loadAdminBots();
+    loadUsers();
     return () => unsubscribePricing();
   }, [auth]);
+
+  useEffect(() => {
+    if (auth && activeTab === "users") {
+      loadUsers();
+    }
+  }, [auth, activeTab]);
 
   function handleAdminLogin() {
     if (passcode === "2712") { setAuth(true); setAuthError(""); }
@@ -198,6 +211,43 @@ export default function AdminPanel({ onBack }) {
       setUserMsg({ text: data.message || data.error, ok: res.ok });
       if (res.ok) loadUsers();
     } catch { setUserMsg({ text:"Request failed", ok:false }); }
+  }
+
+  async function handleUpdateUserPlan(user_id, plan) {
+    setUserMsg({ text:"", ok:false });
+    try {
+      const res = await fetch(`${API}/api/admin/update-user-plan`, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ user_id, plan }),
+      });
+      const data = await res.json();
+      setUserMsg({ text: data.message || data.error, ok: res.ok });
+      if (res.ok) loadUsers();
+    } catch { setUserMsg({ text:"Failed to update plan", ok:false }); }
+  }
+
+  async function handleAddUser(e) {
+    if (e) e.preventDefault();
+    if (!newEmail.trim() || !newEmail.includes("@")) {
+      setUserMsg({ text:"Please enter a valid email address", ok:false });
+      return;
+    }
+    setAddingUser(true);
+    setUserMsg({ text:"", ok:false });
+    try {
+      const res = await fetch(`${API}/api/admin/add-user`, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ email: newEmail.trim(), plan: newPlan, password: newUserPw || "2712" }),
+      });
+      const data = await res.json();
+      setUserMsg({ text: data.message || data.error, ok: res.ok });
+      if (res.ok) {
+        setNewEmail("");
+        setShowAddUser(false);
+        loadUsers();
+      }
+    } catch { setUserMsg({ text:"Failed to create user", ok:false }); }
+    finally { setAddingUser(false); }
   }
 
   async function loadAdminBots() {
@@ -581,75 +631,238 @@ export default function AdminPanel({ onBack }) {
         )}
 
         {/* ── USERS TAB ── */}
-        {activeTab==="users" && (
-          <TabCard
-            title="User Management"
-            desc="Manually verify clients who didn't receive their OTP email, or delete unwanted accounts."
-            action={
-              <Btn variant="ghost" onClick={loadUsers} style={{ fontSize:11, padding:"9px 16px", display:"inline-flex", alignItems:"center", gap:6 }}>
-                <RefreshCw size={12} /> Refresh
-              </Btn>
-            }
-          >
-            {userMsg.text && <AMsg ok={userMsg.ok} text={userMsg.text} />}
-            {usersLoading ? (
-              <div style={{ color:C.muted, fontSize:13, fontFamily:"system-ui", padding:"28px 0", textAlign:"center" }}>Loading users…</div>
-            ) : users.length === 0 ? (
-              <div style={{
-                textAlign:"center", padding:"40px 24px",
-                background:C.surface, border:`1px solid ${C.border}`,
-                borderRadius:16, color:C.muted, fontSize:13, fontFamily:"system-ui",
-              }}>
-                No users yet. Click Refresh to load.
-              </div>
-            ) : (
-              <div style={{ display:"grid", gap:10 }}>
-                {users.map(u => (
-                  <Card3D key={u.id} intensity={3}
-                    glowColor={u.email_verified ? "#22c55e" : "#ef4444"}
-                    style={{
-                      background:C.surface,
-                      border:`1px solid ${u.email_verified ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)"}`,
-                      borderRadius:14, padding:"16px 20px",
-                      display:"flex", alignItems:"center", justifyContent:"space-between",
-                      flexWrap:"wrap", gap:12,
-                      backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)",
-                    }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:14, color:C.text, fontFamily:"system-ui", marginBottom:6, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {u.email}
+        {activeTab==="users" && (() => {
+          const filteredUsers = users.filter(u => {
+            if (!userSearch.trim()) return true;
+            const q = userSearch.toLowerCase().trim();
+            return (u.email || "").toLowerCase().includes(q) || (u.plan || "").toLowerCase().includes(q);
+          });
+          const verifiedCount = users.filter(u => u.email_verified).length;
+          const paidCount = users.filter(u => u.plan && u.plan !== "free" && u.plan !== "trial").length;
+
+          return (
+            <TabCard
+              title="User Management"
+              desc="Manage registered client accounts, verify users, assign subscription plans, or grant custom allowances."
+              action={
+                <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                  <Btn
+                    variant="ghost"
+                    onClick={() => setShowAddUser(s => !s)}
+                    style={{ fontSize:11, padding:"9px 15px", display:"inline-flex", alignItems:"center", gap:6 }}
+                  >
+                    <UserPlus size={12} /> {showAddUser ? "Close Form" : "Add User"}
+                  </Btn>
+                  <Btn
+                    variant="ghost"
+                    onClick={loadUsers}
+                    style={{ fontSize:11, padding:"9px 15px", display:"inline-flex", alignItems:"center", gap:6 }}
+                  >
+                    <RefreshCw size={12} style={{ animation: usersLoading ? "spin 1s linear infinite" : "none" }} /> Refresh
+                  </Btn>
+                </div>
+              }
+            >
+              {userMsg.text && <AMsg ok={userMsg.ok} text={userMsg.text} />}
+
+              {/* ADD USER COLLAPSIBLE FORM */}
+              {showAddUser && (
+                <div style={{
+                  background:C.surface, border:`1px solid rgba(99,102,241,0.3)`,
+                  borderRadius:16, padding:"20px 24px", marginBottom:20,
+                  boxShadow:"0 8px 30px rgba(0,0,0,0.25)"
+                }}>
+                  <div style={{ fontSize:14, fontWeight:600, color:C.text, fontFamily:"system-ui", marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
+                    <UserPlus size={16} color={C.indigo} /> Create & Verify Client Account
+                  </div>
+                  <form onSubmit={handleAddUser} style={{ display:"grid", gap:14 }}>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:12 }}>
+                      <div>
+                        <label style={{ display:"block", fontSize:11, color:C.muted, marginBottom:5, fontFamily:"system-ui" }}>Email Address *</label>
+                        <input
+                          type="email"
+                          required
+                          value={newEmail}
+                          onChange={e => setNewEmail(e.target.value)}
+                          placeholder="client@company.com"
+                          style={{ ...rawInput, width:"100%" }}
+                        />
                       </div>
-                      <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                        <Badge color={u.email_verified ? "#22c55e" : "#ef4444"} style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
-                          {u.email_verified ? <Check size={10} /> : <X size={10} />}
-                          {u.email_verified ? "Verified" : "Unverified"}
-                        </Badge>
-                        <Badge color={C.indigo}>{u.plan?.toUpperCase() || "FREE"}</Badge>
-                        <span style={{ fontSize:11, color:C.dim, fontFamily:"system-ui", paddingTop:2 }}>
-                          {new Date(u.created_at).toLocaleDateString()}
-                        </span>
+                      <div>
+                        <label style={{ display:"block", fontSize:11, color:C.muted, marginBottom:5, fontFamily:"system-ui" }}>Subscription Plan</label>
+                        <select
+                          value={newPlan}
+                          onChange={e => setNewPlan(e.target.value)}
+                          style={{ ...rawInput, width:"100%", background:C.surface, cursor:"pointer" }}
+                        >
+                          <option value="starter">Starter (1 Bot · 500 msgs · $34/mo)</option>
+                          <option value="basic">Basic (2 Bots · 2,500 msgs)</option>
+                          <option value="spark">Spark (4 Bots · 6,000 msgs)</option>
+                          <option value="super">Super (10 Bots · 15,000 msgs)</option>
+                          <option value="king">King (Unlimited Bots)</option>
+                          <option value="ultra">Ultra (Dedicated AI cluster)</option>
+                          <option value="trial">Trial (2 Bots · 3 Days)</option>
+                          <option value="free">Free Tier</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display:"block", fontSize:11, color:C.muted, marginBottom:5, fontFamily:"system-ui" }}>Initial Password</label>
+                        <input
+                          type="text"
+                          value={newUserPw}
+                          onChange={e => setNewUserPw(e.target.value)}
+                          placeholder="2712"
+                          style={{ ...rawInput, width:"100%" }}
+                        />
                       </div>
                     </div>
-                    <div style={{ display:"flex", gap:8 }}>
-                      {!u.email_verified && (
-                        <Btn onClick={() => handleVerifyUser(u.id)} style={{
-                          background:"linear-gradient(135deg,#22c55e,#16a34a)",
-                          boxShadow:"0 4px 14px rgba(34,197,94,0.3)",
-                          padding:"8px 16px", fontSize:11, display:"inline-flex", alignItems:"center", gap:5,
-                        }}>
-                          <Check size={12} /> Verify
-                        </Btn>
-                      )}
-                      <Btn variant="danger" onClick={() => handleDeleteUser(u.id)} style={{ padding:"8px 14px", fontSize:11, display:"inline-flex", alignItems:"center", gap:5 }}>
-                        <Trash2 size={12} /> Delete
+                    <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:4 }}>
+                      <Btn variant="ghost" type="button" onClick={() => setShowAddUser(false)}>Cancel</Btn>
+                      <Btn type="submit" disabled={addingUser} style={{ padding:"9px 20px" }}>
+                        {addingUser ? "Adding…" : "Create & Authorize User"}
                       </Btn>
                     </div>
-                  </Card3D>
-                ))}
+                  </form>
+                </div>
+              )}
+
+              {/* SEARCH & METRICS BAR */}
+              <div style={{
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                flexWrap:"wrap", gap:14, marginBottom:18, padding:"12px 16px",
+                background:C.surface, border:`1px solid ${C.border}`, borderRadius:14
+              }}>
+                <div style={{ position:"relative", flex:1, minWidth:220 }}>
+                  <Search size={14} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.dim }} />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Search by email or plan..."
+                    style={{ ...rawInput, paddingLeft:34, fontSize:12, width:"100%", background:"transparent" }}
+                  />
+                </div>
+                <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+                  <span style={{ fontSize:12, color:C.muted, fontFamily:"system-ui" }}>
+                    Total: <strong style={{ color:C.text }}>{users.length}</strong>
+                  </span>
+                  <span style={{ fontSize:12, color:"#22c55e", fontFamily:"system-ui" }}>
+                    Verified: <strong>{verifiedCount}</strong>
+                  </span>
+                  <span style={{ fontSize:12, color:C.indigo, fontFamily:"system-ui" }}>
+                    Active Plans: <strong>{paidCount}</strong>
+                  </span>
+                </div>
               </div>
-            )}
-          </TabCard>
-        )}
+
+              {usersLoading ? (
+                <div style={{ color:C.muted, fontSize:13, fontFamily:"system-ui", padding:"36px 0", textAlign:"center" }}>
+                  <RefreshCw size={20} style={{ animation:"spin 1s linear infinite", margin:"0 auto 10px", display:"block", color:C.indigo }} />
+                  Loading accounts from database & Firestore…
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div style={{
+                  textAlign:"center", padding:"44px 24px",
+                  background:C.surface, border:`1px solid ${C.border}`,
+                  borderRadius:16, color:C.muted, fontSize:13, fontFamily:"system-ui",
+                }}>
+                  {userSearch ? "No users matching search query." : "No users found in database."}
+                  <div style={{ marginTop:14 }}>
+                    <Btn onClick={loadUsers} style={{ fontSize:11, padding:"8px 16px" }}>Refresh Now</Btn>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"grid", gap:12 }}>
+                  {filteredUsers.map(u => {
+                    const isOwner = (u.email || "").toLowerCase() === "distinctstarschoolsdevices@gmail.com";
+                    return (
+                      <Card3D key={u.id || u.email} intensity={3}
+                        glowColor={isOwner ? "#f59e0b" : (u.email_verified ? "#22c55e" : "#ef4444")}
+                        style={{
+                          background:C.surface,
+                          border:`1px solid ${isOwner ? "rgba(245,158,11,0.35)" : (u.email_verified ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)")}`,
+                          borderRadius:14, padding:"16px 20px",
+                          display:"flex", alignItems:"center", justifyContent:"space-between",
+                          flexWrap:"wrap", gap:14,
+                          backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)",
+                        }}>
+                        <div style={{ flex:1, minWidth:260 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                            <span style={{ fontSize:14, fontWeight:600, color:C.text, fontFamily:"system-ui", wordBreak:"break-all" }}>
+                              {u.email}
+                            </span>
+                            {isOwner && (
+                              <Badge color="#f59e0b" style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:10, padding:"2px 8px" }}>
+                                <Star size={10} /> Workspace Owner
+                              </Badge>
+                            )}
+                          </div>
+                          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginTop:4 }}>
+                            <Badge color={u.email_verified ? "#22c55e" : "#ef4444"} style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+                              {u.email_verified ? <Check size={10} /> : <X size={10} />}
+                              {u.email_verified ? "Verified" : "Unverified"}
+                            </Badge>
+
+                            {/* PLAN SWITCHER SELECT */}
+                            <select
+                              value={u.plan || "free"}
+                              onChange={e => handleUpdateUserPlan(u.id, e.target.value)}
+                              title="Change user plan"
+                              style={{
+                                background:"rgba(99,102,241,0.15)",
+                                border:`1px solid ${C.indigo}`,
+                                color:C.text,
+                                borderRadius:8,
+                                padding:"3px 8px",
+                                fontSize:11,
+                                fontWeight:600,
+                                textTransform:"uppercase",
+                                cursor:"pointer",
+                                outline:"none"
+                              }}
+                            >
+                              <option value="starter">STARTER ($34/mo)</option>
+                              <option value="basic">BASIC</option>
+                              <option value="spark">SPARK</option>
+                              <option value="super">SUPER</option>
+                              <option value="king">KING</option>
+                              <option value="ultra">ULTRA</option>
+                              <option value="trial">TRIAL</option>
+                              <option value="free">FREE</option>
+                            </select>
+
+                            <span style={{ fontSize:11, color:C.dim, fontFamily:"system-ui" }}>
+                              Bots: <strong style={{ color:C.text }}>{u.bot_allowance ?? 0}</strong> · Msgs: <strong style={{ color:C.text }}>{Number(u.message_allowance || 0).toLocaleString()}</strong>
+                            </span>
+
+                            <span style={{ fontSize:11, color:C.dim, fontFamily:"system-ui" }}>
+                              Joined: {u.created_at ? new Date(u.created_at).toLocaleDateString() : "Active"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                          {!u.email_verified && (
+                            <Btn onClick={() => handleVerifyUser(u.id)} style={{
+                              background:"linear-gradient(135deg,#22c55e,#16a34a)",
+                              boxShadow:"0 4px 14px rgba(34,197,94,0.3)",
+                              padding:"8px 14px", fontSize:11, display:"inline-flex", alignItems:"center", gap:5,
+                            }}>
+                              <Check size={12} /> Verify Account
+                            </Btn>
+                          )}
+                          <Btn variant="danger" onClick={() => handleDeleteUser(u.id)} style={{ padding:"8px 14px", fontSize:11, display:"inline-flex", alignItems:"center", gap:5 }}>
+                            <Trash2 size={12} /> Delete
+                          </Btn>
+                        </div>
+                      </Card3D>
+                    );
+                  })}
+                </div>
+              )}
+            </TabCard>
+          );
+        })()}
 
         {/* ── MY CHATBOT TAB ── */}
         {activeTab==="chatbot" && (() => {
