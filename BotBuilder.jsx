@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Bot, AlertTriangle, AlertCircle, Zap, Globe, BarChart3, Edit3, Trash2, Settings, X } from "lucide-react";
 import AnalyticsPanel from "./AnalyticsPanel";
 import EmbedGuide from "./EmbedGuide";
 import { C, Card3D, Glass, Btn, Input, Badge, SceneBg, globalCSS } from "./theme.jsx";
@@ -181,7 +182,9 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 20 }}>{trialDaysLeft <= 1 ? "🚨" : trialDaysLeft <= 2 ? "⚠️" : "⚡"}</span>
+              <span style={{ display: "flex", alignItems: "center" }}>
+                {trialDaysLeft <= 1 ? <AlertCircle size={20} color="#f87171" /> : trialDaysLeft <= 2 ? <AlertTriangle size={20} color="#fb923c" /> : <Zap size={20} color="#a5b4fc" />}
+              </span>
               <div>
                 <div style={{
                   fontSize: 12, fontWeight: 700,
@@ -207,7 +210,10 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
             <h2 style={{
               fontFamily: "'Orbitron',monospace", fontWeight: 900, fontSize: 18,
               letterSpacing: "0.08em", color: C.text, marginBottom: 4,
-            }}>🤖 My Chatbots</h2>
+              display: "flex", alignItems: "center", gap: 8
+            }}>
+              <Bot size={20} color={C.indigo} /> My Chatbots
+            </h2>
             <div style={{ fontSize: 13, color: C.muted, fontFamily: "system-ui" }}>
               {bots.length} / {botAllowance === 999 ? "∞" : botAllowance} bots used
             </div>
@@ -224,7 +230,9 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
             background: C.surface, border: `1px dashed rgba(99,102,241,0.3)`,
             borderRadius: 20, padding: "56px 32px", textAlign: "center",
           }}>
-            <div style={{ fontSize: 44, marginBottom: 18 }}>🤖</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+              <Bot size={44} color={C.indigo} />
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "system-ui", marginBottom: 8 }}>No bots yet</div>
             <div style={{ fontSize: 13, color: C.muted, fontFamily: "system-ui", lineHeight: 1.7 }}>
               Create your first chatbot to get started.
@@ -254,7 +262,11 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <Badge color={C.indigo}>{Array.isArray(bot.faqs) ? bot.faqs.length : 0} FAQs</Badge>
                       {bot.website && (
-                        <Badge color="#22c55e">🌐 {bot.website.replace(/^https?:\/\//, "").split("/")[0]}</Badge>
+                        <Badge color="#22c55e">
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <Globe size={11} /> {bot.website.replace(/^https?:\/\//, "").split("/")[0]}
+                          </span>
+                        </Badge>
                       )}
                     </div>
                   </div>
@@ -264,12 +276,15 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
                       background: analyticsMap[bot.id]?.data ? "rgba(99,102,241,0.15)" : "transparent",
                       borderColor: analyticsMap[bot.id]?.data ? "rgba(99,102,241,0.5)" : "rgba(99,102,241,0.25)",
                       color: analyticsMap[bot.id]?.data ? "#a5b4fc" : C.muted,
-                    }}>📊 Stats</button>
-                    <button onClick={() => startEdit(bot)} style={{ ...miniBtn, borderColor: "rgba(99,102,241,0.35)", color: "#a5b4fc" }}>
-                      ✏️ Edit
+                      display: "inline-flex", alignItems: "center", gap: 5
+                    }}>
+                      <BarChart3 size={12} /> Stats
                     </button>
-                    <button onClick={() => handleDelete(bot.id)} style={{ ...miniBtn, borderColor: "rgba(239,68,68,0.3)", color: "#f87171" }}>
-                      🗑 Delete
+                    <button onClick={() => startEdit(bot)} style={{ ...miniBtn, borderColor: "rgba(99,102,241,0.35)", color: "#a5b4fc", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <Edit3 size={12} /> Edit
+                    </button>
+                    <button onClick={() => handleDelete(bot.id)} style={{ ...miniBtn, borderColor: "rgba(239,68,68,0.3)", color: "#f87171", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <Trash2 size={12} /> Delete
                     </button>
                   </div>
                 </div>
@@ -305,7 +320,10 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
           <h2 style={{
             fontFamily: "'Orbitron',monospace", fontWeight: 900, fontSize: 18,
             letterSpacing: "0.08em", color: C.text, marginBottom: 4,
-          }}>✏️ Edit — {editBot.name}</h2>
+            display: "flex", alignItems: "center", gap: 8
+          }}>
+            <Edit3 size={18} color={C.indigo} /> Edit — {editBot.name}
+          </h2>
           <p style={{ fontSize: 13, color: C.muted, fontFamily: "system-ui" }}>
             Update your bot's name, website, or FAQs. Changes take effect immediately.
           </p>
@@ -322,7 +340,7 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
           borderRadius: 20, padding: "32px 28px",
           backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         }}>
-          <SectionLabel icon="⚙️" text="Bot Configuration" />
+          <SectionLabel icon={<Settings size={14} color={C.indigo} />} text="Bot Configuration" />
 
           <div style={{ display: "grid", gap: 4, marginBottom: 28 }}>
             <Input label="Bot Name *" value={editName} onChange={e => setEditName(e.target.value)} placeholder="e.g. Support Bot" />
@@ -379,7 +397,7 @@ export default function BotBuilder({ token, botAllowance, plan, planExpiresAt, o
         borderRadius: 20, padding: "32px 28px",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
       }}>
-        <SectionLabel icon="⚙️" text="Bot Configuration" />
+        <SectionLabel icon={<Settings size={14} color={C.indigo} />} text="Bot Configuration" />
 
         <div style={{ display: "grid", gap: 4, marginBottom: 28 }}>
           <Input label="Bot Name *" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Support Bot" />
@@ -416,7 +434,10 @@ function SectionLabel({ icon, text }) {
       <h3 style={{
         fontFamily: "'Orbitron',monospace", fontWeight: 700, fontSize: 13,
         letterSpacing: "0.15em", color: C.text,
-      }}>{icon} {text}</h3>
+        display: "flex", alignItems: "center", gap: 8
+      }}>
+        {icon} <span>{text}</span>
+      </h3>
       <div style={{ width: 40, height: 2, background: C.grad, borderRadius: 2, marginTop: 8 }} />
     </div>
   );
@@ -441,8 +462,10 @@ function FAQEditor({ faqs, onChange, onAdd, onRemove }) {
                 <button onClick={() => onRemove(i)} style={{
                   background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
                   borderRadius: 8, color: "#f87171", cursor: "pointer",
-                  fontSize: 13, padding: "4px 10px", lineHeight: 1,
-                }}>✕</button>
+                  padding: "4px 8px", lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                }} title="Remove FAQ">
+                  <X size={13} />
+                </button>
               )}
             </div>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>

@@ -1,10 +1,17 @@
 import { useState, useEffect } from "react";
+import { CheckCircle, Check, Copy, X } from "lucide-react";
+import { CURRENCIES, convertUSD } from "./currencyUtils.js";
+import { usePricing } from "./pricingService.js";
 
-const CURRENCIES = ["USDT", "BTC", "ETH", "SOL"];
+const CRYPTO_CURRENCIES = ["USDT", "BTC", "ETH", "SOL"];
 
-export default function PaymentModal({ plan, onClose, onGetStarted }) {
+export default function PaymentModal({ plan, user, userCurrency = "USD", markupPercent: propMarkup, onClose, onGetStarted }) {
+  const { prices: livePrices, markupPercent: liveMarkup } = usePricing();
   const [step, setStep] = useState("select");
   const [currency, setCurrency] = useState("USDT");
+  const [selectedCurr, setSelectedCurr] = useState(
+    userCurrency || localStorage.getItem("axxon_currency") || "USD"
+  );
   const [renewalType, setRenewalType] = useState("one-off");
   const [wallets, setWallets] = useState({ USDT: "", BTC: "", ETH: "", SOL: "" });
   const [orderId, setOrderId] = useState(null);
@@ -18,7 +25,16 @@ export default function PaymentModal({ plan, onClose, onGetStarted }) {
 
   if (!plan) return null;
 
+  const currentPrice = livePrices && plan.id ? (livePrices[plan.id] ?? plan.price) : plan.price;
+  const currentMarkup = propMarkup !== undefined ? propMarkup : (liveMarkup ?? 15);
+
   const token = localStorage.getItem("axxon_token");
+  const converted = convertUSD(currentPrice, selectedCurr, currentMarkup);
+
+  const handleCurrencyChange = (newCode) => {
+    setSelectedCurr(newCode);
+    localStorage.setItem("axxon_currency", newCode);
+  };
 
   async function handleInitialize() {
     if (!token) {
@@ -93,22 +109,57 @@ export default function PaymentModal({ plan, onClose, onGetStarted }) {
       <div style={boxStyle}>
         <button onClick={onClose} style={{
           position: "absolute", top: 16, right: 16,
-          background: "none", border: "none", color: "#475569",
-          fontSize: 20, cursor: "pointer", lineHeight: 1,
-        }}>✕</button>
+          background: "none", border: "none", color: "#64748b",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <X size={18} />
+        </button>
 
-        <div style={{ fontSize: 10, letterSpacing: "0.3em", color: accent, marginBottom: 8 }}>◆ {plan.name} PLAN</div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", marginBottom: 4 }}>
-          ${plan.price.toLocaleString()} <span style={{ fontSize: 12, color: `${accent}99` }}>USDT</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: "0.3em", color: accent, marginBottom: 6 }}>◆ {plan.name} PLAN</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", marginBottom: 2 }}>
+              {converted.formatted}
+            </div>
+          </div>
+          {/* Currency Dropdown Selector inside Modal */}
+          <div style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${accent}50`, borderRadius: 10, padding: "4px 8px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#94a3b8", fontFamily: "system-ui", marginBottom: 2 }}>Pay Currency:</div>
+            <select
+              value={selectedCurr}
+              onChange={e => handleCurrencyChange(e.target.value)}
+              style={{
+                background: "transparent", border: "none", color: "#60a5fa",
+                fontSize: 12, fontWeight: 700, fontFamily: "'Orbitron',monospace",
+                outline: "none", cursor: "pointer",
+              }}
+            >
+              {CURRENCIES.map(c => (
+                <option key={c.code} value={c.code} style={{ background: "#0a0a1a", color: "#fff" }}>
+                  {c.flag} {c.code} ({c.symbol})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: "#475569", marginBottom: 28, letterSpacing: "0.1em" }}>{plan.duration} access</div>
+
+        {!converted.isNormal ? (
+          <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "system-ui", marginBottom: 10, lineHeight: 1.5 }}>
+            ≈ ${currentPrice.toLocaleString()} USD base price &nbsp;·&nbsp; <span style={{ color: "#60a5fa" }}>{converted.rateText}</span>
+          </div>
+        ) : (
+          <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "system-ui", marginBottom: 10 }}>
+            US Dollar Base Rate
+          </div>
+        )}
+        <div style={{ fontSize: 10, color: "#475569", marginBottom: 24, letterSpacing: "0.1em" }}>{plan.duration} access</div>
 
         {step === "select" && (
           <>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#475569", marginBottom: 10 }}>PAY WITH</div>
+              <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#475569", marginBottom: 10 }}>PAY WITH CRYPTO</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {CURRENCIES.map(c => (
+                {CRYPTO_CURRENCIES.map(c => (
                   <button key={c} onClick={() => setCurrency(c)} style={{
                     padding: "8px 16px", borderRadius: 8, cursor: "pointer",
                     fontSize: 10, letterSpacing: "0.15em", fontWeight: 700,
@@ -169,13 +220,24 @@ export default function PaymentModal({ plan, onClose, onGetStarted }) {
               {wallets[currency] && (
                 <button onClick={copyAddress} style={{
                   padding: "6px 14px", borderRadius: 6, cursor: "pointer",
-                  fontSize: 9, letterSpacing: "0.15em",
+                  fontSize: 10, letterSpacing: "0.1em", fontWeight: 600,
                   background: copied ? "#22c55e20" : "rgba(255,255,255,0.05)",
                   border: `1px solid ${copied ? "#22c55e" : "rgba(255,255,255,0.1)"}`,
                   color: copied ? "#22c55e" : "#94a3b8",
-                  fontFamily: "'Orbitron', monospace",
+                  fontFamily: "system-ui, sans-serif",
+                  display: "inline-flex", alignItems: "center", gap: 6,
                 }}>
-                  {copied ? "COPIED ✓" : "COPY ADDRESS"}
+                  {copied ? (
+                    <>
+                      <Check size={12} />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} />
+                      <span>Copy Address</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -186,7 +248,7 @@ export default function PaymentModal({ plan, onClose, onGetStarted }) {
               fontSize: 10, color: "#475569", lineHeight: 1.7, fontFamily: "system-ui",
             }}>
               Order ID: <span style={{ color: "#60a5fa", fontFamily: "monospace" }}>{orderId}</span><br/>
-              Amount: <span style={{ color: "#fff" }}>${plan.price.toLocaleString()} USD in {currency}</span>
+              Amount: <span style={{ color: "#fff" }}>${currentPrice.toLocaleString()} USD {!converted.isNormal && `(${converted.formatted})`} in {currency}</span>
             </div>
 
             <div style={{ fontSize: 10, color: "#475569", fontFamily: "system-ui", marginBottom: 20, lineHeight: 1.6 }}>
@@ -217,7 +279,9 @@ export default function PaymentModal({ plan, onClose, onGetStarted }) {
 
         {step === "done" && (
           <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+              <CheckCircle size={48} color="#22c55e" />
+            </div>
             <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.15em", color: "#22c55e", marginBottom: 12 }}>
               PAYMENT CONFIRMED
             </div>

@@ -1,0 +1,32 @@
+{
+  "entities": {
+    "pricing_config": {
+      "title": "Pricing Configuration",
+      "description": "Centralized real-time pricing configuration for plans and currency markup",
+      "type": "object",
+      "properties": {
+        "prices": {
+          "type": "object",
+          "description": "Map of plan key to USD price number",
+          "properties": {
+            "starter": { "type": "number" },
+            "basic": { "type": "number" },
+            "spark": { "type": "number" },
+            "super": { "type": "number" },
+            "king": { "type": "number" },
+            "ultra": { "type": "number" }
+          }
+        },
+        "markup_percent": {
+          "type": "number",
+          "description": "Global currency conversion markup percentage"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["prices"]
+    }
+  }
+}

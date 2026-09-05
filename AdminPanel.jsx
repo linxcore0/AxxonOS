@@ -1,12 +1,19 @@
 import { useState, useEffect } from "react";
 import AnalyticsPanelComp from "./AnalyticsPanel";
 import EmbedGuide from "./EmbedGuide";
-import { C, Card3D, Glass, Btn, Input, Badge, SceneBg, globalCSS } from "./theme.jsx";
+import { C, Card3D, Glass, Btn, Input, Badge, SceneBg, ThemeToggle, globalCSS } from "./theme.jsx";
+import { subscribeToPricing, updatePricingInFirestore } from "./pricingService.js";
+import {
+  Tag, CreditCard, KeyRound, Users, Bot, Share2, Lock, BarChart3, Activity,
+  ArrowLeft, RefreshCw, Trash2, Edit3, ExternalLink, Globe, DollarSign,
+  Target, AlertTriangle, Clock, Search, Zap, Check, X, ShieldAlert, Coins,
+  ArrowDown, ArrowUp, ArrowRight
+} from "lucide-react";
 
 const API = "";
-const PLANS   = ["basic","spark","super","king","ultra"];
+const PLANS   = ["starter","basic","spark","super","king","ultra"];
 const CRYPTOS = ["USDT","BTC","ETH","SOL"];
-const CRYPTO_ICONS = { USDT:"💵", BTC:"₿", ETH:"Ξ", SOL:"◎" };
+const CRYPTO_ICONS = { USDT: "₮", BTC: "₿", ETH: "Ξ", SOL: "◎" };
 const CRYPTO_COLORS = { USDT:"#26a17b", BTC:"#f7931a", ETH:"#627eea", SOL:"#9945ff" };
 
 export default function AdminPanel({ onBack }) {
@@ -21,9 +28,15 @@ export default function AdminPanel({ onBack }) {
   const [userMsg, setUserMsg]           = useState({ text:"", ok:false });
 
   // Payment settings
-  const [planAPIs, setPlanAPIs] = useState({ basic:"", spark:"", super:"", king:"", ultra:"" });
+  const [planAPIs, setPlanAPIs] = useState({ starter:"", basic:"", spark:"", super:"", king:"", ultra:"" });
   const [wallets, setWallets]   = useState({ USDT:"", BTC:"", ETH:"", SOL:"" });
   const [paymentMsg, setPaymentMsg] = useState({ text:"", ok:false });
+
+  // Plan Prices
+  const [planPrices, setPlanPrices] = useState({ starter: 34, basic: 100, spark: 300, super: 700, king: 4000, ultra: 20000 });
+  const [markupPercent, setMarkupPercent] = useState(15);
+  const [priceMsg, setPriceMsg]     = useState({ text:"", ok:false });
+  const [pricesSaving, setPricesSaving] = useState(false);
 
   // Reports
   const [reportSending, setReportSending] = useState(false);
@@ -82,12 +95,34 @@ export default function AdminPanel({ onBack }) {
     fetch(`${API}/api/admin/wallets`).then(r => r.json()).then(d => {
       setWallets({ USDT: d.USDT||"", BTC: d.BTC||"", ETH: d.ETH||"", SOL: d.SOL||"" });
     }).catch(() => {});
+    const unsubscribePricing = subscribeToPricing(({ prices, markup_percent }) => {
+      if (prices) setPlanPrices(prev => ({ ...prev, ...prices }));
+      if (markup_percent !== undefined) setMarkupPercent(markup_percent);
+    });
     loadAdminBots();
+    return () => unsubscribePricing();
   }, [auth]);
 
   function handleAdminLogin() {
     if (passcode === "2712") { setAuth(true); setAuthError(""); }
     else setAuthError("Incorrect passcode. Try again.");
+  }
+
+  async function handleSavePrices() {
+    setPriceMsg({ text:"", ok:false });
+    setPricesSaving(true);
+    try {
+      // Sync real-time pricing to Firestore first
+      await updatePricingInFirestore(planPrices, markupPercent);
+
+      const res = await fetch(`${API}/api/admin/update-prices`, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ prices: planPrices, markup_percent: markupPercent }),
+      });
+      const data = await res.json();
+      setPriceMsg({ text: data.message || data.error || "Prices & markup saved live to Firestore", ok: true });
+    } catch { setPriceMsg({ text:"Request failed", ok:false }); }
+    finally { setPricesSaving(false); }
   }
 
   async function handleSavePayments() {
@@ -271,14 +306,15 @@ export default function AdminPanel({ onBack }) {
   }
 
   const tabs = [
-    { id:"payments", label:"💳", full:"Payments"       },
-    { id:"wallets",  label:"🔐", full:"Wallets"        },
-    { id:"users",    label:"👥", full:"Users"          },
-    { id:"chatbot",  label:"🤖", full:"My Chatbot"     },
-    { id:"socials",  label:"🔗", full:"Socials"        },
-    { id:"security", label:"🔒", full:"Security"       },
-    { id:"reports",  label:"📊", full:"Reports"        },
-    { id:"chain",    label:"⛓",  full:"Chain Monitor"  },
+    { id:"prices",   icon: Tag,        full:"Plan Prices"     },
+    { id:"payments", icon: CreditCard, full:"Payments"       },
+    { id:"wallets",  icon: KeyRound,   full:"Wallets"        },
+    { id:"users",    icon: Users,      full:"Users"          },
+    { id:"chatbot",  icon: Bot,        full:"My Chatbot"     },
+    { id:"socials",  icon: Share2,     full:"Socials"        },
+    { id:"security", icon: Lock,       full:"Security"       },
+    { id:"reports",  icon: BarChart3,  full:"Reports"        },
+    { id:"chain",    icon: Activity,   full:"Chain Monitor"  },
   ];
 
   // ── AUTH GATE ──────────────────────────────────────────────────────────────
@@ -301,8 +337,10 @@ export default function AdminPanel({ onBack }) {
             <div style={{
               width:56, height:56, borderRadius:16, marginBottom:28,
               background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)",
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:24,
-            }}>🔒</div>
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              <Lock size={24} color="#ef4444" />
+            </div>
 
             <div style={{ fontSize:10, color:"#ef4444", letterSpacing:".3em", marginBottom:8, fontFamily:"'Orbitron',monospace" }}>
               ◆ RESTRICTED ACCESS
@@ -353,35 +391,130 @@ export default function AdminPanel({ onBack }) {
               WebkitTextFillColor:"transparent", backgroundClip:"text",
             }}>AXXON</h1>
           </div>
-          <Btn variant="ghost" onClick={onBack} style={{ fontSize:11 }}>← Exit</Btn>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <ThemeToggle />
+            <Btn variant="ghost" onClick={onBack} style={{ fontSize:11 }}>← Exit</Btn>
+          </div>
         </div>
 
         {/* Tab bar */}
         <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:32 }}>
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              style={{
-                padding:"10px 18px", borderRadius:12, cursor:"pointer",
-                background: activeTab===t.id ? "linear-gradient(135deg,#3b82f6,#6366f1)" : C.surface,
-                border: activeTab===t.id ? "none" : `1px solid ${C.border}`,
-                color: activeTab===t.id ? "#fff" : C.muted,
-                fontSize:12, fontWeight:700, letterSpacing:".12em",
-                fontFamily:"'Orbitron',monospace",
-                boxShadow: activeTab===t.id ? "0 4px 18px rgba(99,102,241,0.4)" : "none",
-                transition:"all 0.18s",
-                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
-              }}
-            >
-              {t.label} <span style={{ marginLeft:4 }}>{t.full}</span>
-            </button>
-          ))}
+          {tabs.map(t => {
+            const TabIcon = t.icon;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  padding:"10px 18px", borderRadius:12, cursor:"pointer",
+                  background: activeTab===t.id ? "linear-gradient(135deg,#3b82f6,#6366f1)" : C.surface,
+                  border: activeTab===t.id ? "none" : `1px solid ${C.border}`,
+                  color: activeTab===t.id ? "#fff" : C.muted,
+                  fontSize:12, fontWeight:700, letterSpacing:".12em",
+                  fontFamily:"'Orbitron',monospace",
+                  boxShadow: activeTab===t.id ? "0 4px 18px rgba(99,102,241,0.4)" : "none",
+                  transition:"all 0.18s",
+                  backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                }}
+              >
+                <TabIcon size={14} />
+                <span>{t.full}</span>
+              </button>
+            );
+          })}
         </div>
+
+        {/* ── PLAN PRICES TAB ── */}
+        {activeTab==="prices" && (
+          <TabCard title="Plan Price Configuration" desc="Set custom prices (in USD) for each plan. Changes immediately update the public pricing page, checkout modals, and payment calculations.">
+            <div style={{ display:"grid", gap:14, marginBottom:16 }}>
+              {[
+                { id:"starter", name:"Starter Plan (1 Month / 1 Bot / 3k msgs)", defaultVal:34 },
+                { id:"basic",   name:"Basic Plan (7 Days / 2 Bots / 5k msgs)", defaultVal:100 },
+                { id:"spark",   name:"Spark Plan (30 Days / 6 Bots / 50k msgs)", defaultVal:300 },
+                { id:"super",   name:"Super Plan (30 Days / 20 Bots / 200k msgs)", defaultVal:700 },
+                { id:"king",    name:"King Plan (1 Year / Unlimited Bots / 20M msgs)", defaultVal:4000 },
+                { id:"ultra",   name:"Ultra Plan (Lifetime / Unlimited Bots & msgs)", defaultVal:20000 },
+              ].map(plan => (
+                <Card3D key={plan.id} intensity={3} glowColor={C.indigo} style={{
+                  background: C.surface, border: `1px solid ${C.border}`,
+                  borderRadius: 16, padding: "16px 20px",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  flexWrap: "wrap", gap: 12,
+                }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "system-ui", marginBottom: 4 }}>
+                      {plan.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted, fontFamily: "system-ui" }}>
+                      Current Live Price: <strong style={{ color: "#4ade80" }}>${planPrices[plan.id] ?? plan.defaultVal} USD</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14, color: C.text, fontWeight: 700, fontFamily: "'Orbitron',monospace" }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={planPrices[plan.id] ?? ""}
+                      onChange={e => setPlanPrices(prev => ({ ...prev, [plan.id]: e.target.value }))}
+                      placeholder={String(plan.defaultVal)}
+                      style={{
+                        width: 130, padding: "10px 14px", borderRadius: 10,
+                        background: "rgba(0,0,0,0.4)", border: `1px solid ${C.border}`,
+                        color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "'Orbitron',monospace",
+                      }}
+                    />
+                    <span style={{ fontSize: 11, color: C.dim, fontFamily: "'Orbitron',monospace" }}>USD</span>
+                  </div>
+                </Card3D>
+              ))}
+
+              {/* Currency Markup Rate Card */}
+              <Card3D intensity={3} glowColor="#f59e0b" style={{
+                background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.3)",
+                borderRadius: 16, padding: "16px 20px",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                flexWrap: "wrap", gap: 12, marginTop: 8,
+              }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "system-ui", marginBottom: 4 }}>
+                    Non-USD Currency Exchange Markup (%)
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, fontFamily: "system-ui" }}>
+                    Markup percentage applied to non-USD local currency rates (e.g. 15% higher rate).
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={markupPercent}
+                    onChange={e => setMarkupPercent(e.target.value)}
+                    placeholder="15"
+                    style={{
+                      width: 100, padding: "10px 14px", borderRadius: 10,
+                      background: "rgba(0,0,0,0.5)", border: "1px solid rgba(245,158,11,0.4)",
+                      color: "#fbbf24", fontSize: 14, fontWeight: 700, fontFamily: "'Orbitron',monospace",
+                    }}
+                  />
+                  <span style={{ fontSize: 13, color: "#fbbf24", fontWeight: 700, fontFamily: "'Orbitron',monospace" }}>%</span>
+                </div>
+              </Card3D>
+            </div>
+            {priceMsg.text && <AMsg ok={priceMsg.ok} text={priceMsg.text} />}
+            <Btn onClick={handleSavePrices} disabled={pricesSaving} style={{ marginTop:8 }}>
+              {pricesSaving ? "Saving Configuration…" : "Save Plan Prices & Exchange Rates"}
+            </Btn>
+          </TabCard>
+        )}
 
         {/* ── PAYMENTS TAB ── */}
         {activeTab==="payments" && (
-          <TabCard title="💳 Card / Fiat Payment API" desc="Enter your payment gateway API key for each plan. Clients paying by card use this key — it auto-converts to local currency at live rates.">
+          <TabCard title="Card / Fiat Payment API" desc="Enter your payment gateway API key for each plan. Clients paying by card use this key — it auto-converts to local currency at live rates.">
             <div style={{ display:"grid", gap:4 }}>
               {PLANS.map(plan => (
                 <div key={plan}>
@@ -401,7 +534,7 @@ export default function AdminPanel({ onBack }) {
 
         {/* ── WALLETS TAB ── */}
         {activeTab==="wallets" && (
-          <TabCard title="🔐 Crypto Wallet Addresses" desc="Funds from crypto payments are sent directly to these addresses. Prices are auto-calculated from USDT plan prices using live market rates.">
+          <TabCard title="Crypto Wallet Addresses" desc="Funds from crypto payments are sent directly to these addresses. Prices are auto-calculated from USDT plan prices using live market rates.">
             <div style={{ display:"grid", gap:16, marginBottom:8 }}>
               {CRYPTOS.map(coin => (
                 <Card3D key={coin} intensity={4} glowColor={CRYPTO_COLORS[coin]} style={{
@@ -414,13 +547,15 @@ export default function AdminPanel({ onBack }) {
                       width:40, height:40, borderRadius:10, flexShrink:0,
                       background:`${CRYPTO_COLORS[coin]}18`, border:`1px solid ${CRYPTO_COLORS[coin]}30`,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:20,
+                      fontSize:20, fontWeight: 700, fontFamily: "'Orbitron', monospace", color: CRYPTO_COLORS[coin]
                     }}>{CRYPTO_ICONS[coin]}</div>
                     <div style={{ fontSize:13, fontWeight:700, color:C.text, fontFamily:"'Orbitron',monospace", letterSpacing:".1em" }}>
                       {coin}
                     </div>
                     {wallets[coin] && (
-                      <Badge color={CRYPTO_COLORS[coin]}>✓ Saved</Badge>
+                      <Badge color={CRYPTO_COLORS[coin]} style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
+                        <Check size={10} /> Saved
+                      </Badge>
                     )}
                   </div>
                   <input
@@ -433,8 +568,8 @@ export default function AdminPanel({ onBack }) {
                     onBlur={e   => { e.target.style.borderColor = C.border; e.target.style.boxShadow = "none"; }}
                   />
                   {wallets[coin] && (
-                    <div style={{ fontSize:11, color:CRYPTO_COLORS[coin], marginTop:8, fontFamily:"monospace" }}>
-                      ✓ {wallets[coin].slice(0,18)}…{wallets[coin].slice(-8)}
+                    <div style={{ fontSize:11, color:CRYPTO_COLORS[coin], marginTop:8, fontFamily:"monospace", display:"flex", alignItems:"center", gap:4 }}>
+                      <Check size={11} /> {wallets[coin].slice(0,18)}…{wallets[coin].slice(-8)}
                     </div>
                   )}
                 </Card3D>
@@ -448,9 +583,13 @@ export default function AdminPanel({ onBack }) {
         {/* ── USERS TAB ── */}
         {activeTab==="users" && (
           <TabCard
-            title="👥 User Management"
+            title="User Management"
             desc="Manually verify clients who didn't receive their OTP email, or delete unwanted accounts."
-            action={<Btn variant="ghost" onClick={loadUsers} style={{ fontSize:11, padding:"9px 16px" }}>↺ Refresh</Btn>}
+            action={
+              <Btn variant="ghost" onClick={loadUsers} style={{ fontSize:11, padding:"9px 16px", display:"inline-flex", alignItems:"center", gap:6 }}>
+                <RefreshCw size={12} /> Refresh
+              </Btn>
+            }
           >
             {userMsg.text && <AMsg ok={userMsg.ok} text={userMsg.text} />}
             {usersLoading ? (
@@ -481,8 +620,9 @@ export default function AdminPanel({ onBack }) {
                         {u.email}
                       </div>
                       <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                        <Badge color={u.email_verified ? "#22c55e" : "#ef4444"}>
-                          {u.email_verified ? "✓ Verified" : "✗ Unverified"}
+                        <Badge color={u.email_verified ? "#22c55e" : "#ef4444"} style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
+                          {u.email_verified ? <Check size={10} /> : <X size={10} />}
+                          {u.email_verified ? "Verified" : "Unverified"}
                         </Badge>
                         <Badge color={C.indigo}>{u.plan?.toUpperCase() || "FREE"}</Badge>
                         <span style={{ fontSize:11, color:C.dim, fontFamily:"system-ui", paddingTop:2 }}>
@@ -495,11 +635,13 @@ export default function AdminPanel({ onBack }) {
                         <Btn onClick={() => handleVerifyUser(u.id)} style={{
                           background:"linear-gradient(135deg,#22c55e,#16a34a)",
                           boxShadow:"0 4px 14px rgba(34,197,94,0.3)",
-                          padding:"8px 16px", fontSize:11,
-                        }}>✓ Verify</Btn>
+                          padding:"8px 16px", fontSize:11, display:"inline-flex", alignItems:"center", gap:5,
+                        }}>
+                          <Check size={12} /> Verify
+                        </Btn>
                       )}
-                      <Btn variant="danger" onClick={() => handleDeleteUser(u.id)} style={{ padding:"8px 14px", fontSize:11 }}>
-                        🗑 Delete
+                      <Btn variant="danger" onClick={() => handleDeleteUser(u.id)} style={{ padding:"8px 14px", fontSize:11, display:"inline-flex", alignItems:"center", gap:5 }}>
+                        <Trash2 size={12} /> Delete
                       </Btn>
                     </div>
                   </Card3D>
@@ -516,7 +658,7 @@ export default function AdminPanel({ onBack }) {
           // EDIT MODE
           if (editingBot) {
             return (
-              <TabCard title={`✏️ Edit Bot — ${editingBot.name}`} desc="Update the name, website, or FAQ training data. Changes take effect immediately.">
+              <TabCard title={`Edit Bot — ${editingBot.name}`} desc="Update the name, website, or FAQ training data. Changes take effect immediately.">
                 <div style={{ marginBottom:28 }}>
                   <EmbedGuide botId={editingBot.id} botName={editingBot.name} baseUrl={baseUrl} />
                 </div>
@@ -536,7 +678,7 @@ export default function AdminPanel({ onBack }) {
 
           // DEFAULT VIEW
           return (
-            <TabCard title="🤖 My Chatbot (Free)" desc="Build your own chatbot — free, no plan required. Train it with FAQs and deploy it on your website.">
+            <TabCard title="My Chatbot (Free)" desc="Build your own chatbot — free, no plan required. Train it with FAQs and deploy it on your website.">
 
               {/* Existing bots */}
               {adminBots.length > 0 && (
@@ -559,18 +701,31 @@ export default function AdminPanel({ onBack }) {
                               <div style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"system-ui", marginBottom:6 }}>{bot.name}</div>
                               <div style={{ display:"flex", gap:8 }}>
                                 <Badge color={C.indigo}>{faqs.length} FAQ{faqs.length !== 1 ? "s" : ""}</Badge>
-                                {bot.website && <Badge color="#22c55e">🌐 {bot.website.replace(/^https?:\/\//,"").split("/")[0]}</Badge>}
+                                {bot.website && (
+                                  <Badge color="#22c55e">
+                                    <span style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+                                      <Globe size={11} /> {bot.website.replace(/^https?:\/\//,"").split("/")[0]}
+                                    </span>
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                             <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                              <a href={botUrl} target="_blank" rel="noreferrer" style={{ ...chipLink, borderColor:"rgba(34,197,94,0.35)", color:"#4ade80" }}>🚀 Test</a>
+                              <a href={botUrl} target="_blank" rel="noreferrer" style={{ ...chipLink, borderColor:"rgba(34,197,94,0.35)", color:"#4ade80" }}>
+                                <ExternalLink size={12} style={{ marginRight: 4 }} /> Test
+                              </a>
                               <button onClick={() => toggleAdminAnalytics(bot.id)} style={{
                                 ...chip,
                                 background: analyticsMap[bot.id]?.data ? "rgba(99,102,241,0.15)" : "transparent",
                                 borderColor: analyticsMap[bot.id]?.data ? "rgba(99,102,241,0.5)" : "rgba(99,102,241,0.25)",
                                 color: analyticsMap[bot.id]?.data ? "#a5b4fc" : C.muted,
-                              }}>📊 Stats</button>
-                              <button onClick={() => startEdit(bot)} style={{ ...chip, borderColor:"rgba(99,102,241,0.35)", color:"#a5b4fc" }}>✏️ Edit</button>
+                                display: "inline-flex", alignItems: "center", gap: 5
+                              }}>
+                                <BarChart3 size={12} /> Stats
+                              </button>
+                              <button onClick={() => startEdit(bot)} style={{ ...chip, borderColor:"rgba(99,102,241,0.35)", color:"#a5b4fc", display:"inline-flex", alignItems:"center", gap:5 }}>
+                                <Edit3 size={12} /> Edit
+                              </button>
                             </div>
                           </div>
                           {analyticsMap[bot.id] && (
@@ -620,7 +775,7 @@ export default function AdminPanel({ onBack }) {
 
         {/* ── SOCIALS TAB ── */}
         {activeTab==="socials" && (
-          <TabCard title="🔗 Social Handles" desc="Configure your official social handles — these power the chatbot live-agent button and all public-facing profile links.">
+          <TabCard title="Social Handles" desc="Configure your official social handles — these power the chatbot live-agent button and all public-facing profile links.">
             <div style={{ display:"grid", gap:10, marginBottom:8 }}>
               {[
                 { key:"telegram", label:"Telegram",   value:telegram,  set:setTelegram,  color:"#229ED9", placeholder:"@handle or https://t.me/handle",
@@ -671,7 +826,7 @@ export default function AdminPanel({ onBack }) {
 
         {/* ── SECURITY TAB ── */}
         {activeTab==="security" && (
-          <TabCard title="🔒 Security Settings" desc="Update the master admin panel passcode.">
+          <TabCard title="Security Settings" desc="Update the master admin panel passcode.">
             <div style={{ display:"grid", gap:4, marginBottom:8 }}>
               <Input label="Current Password" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Enter current password" />
               <Input label="New Password"     type="password" value={newPw}      onChange={e => setNewPw(e.target.value)}      placeholder="Enter new password" />
@@ -686,19 +841,19 @@ export default function AdminPanel({ onBack }) {
 
         {/* ── REPORTS TAB ── */}
         {activeTab==="reports" && (
-          <TabCard title="📊 Weekly Analytics Report" desc="Every Monday at 8:00 AM, Axxon emails you a full week summary — messages, match rate, top questions, unmatched queries, payments, and revenue.">
+          <TabCard title="Weekly Analytics Report" desc="Every Monday at 8:00 AM, Axxon emails you a full week summary — messages, match rate, top questions, unmatched queries, payments, and revenue.">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
               {[
-                { icon:"💬", label:"Messages",   desc:"Total chat volume this week"  },
-                { icon:"🎯", label:"Match Rate",  desc:"FAQ hits vs AI fallbacks"     },
-                { icon:"💰", label:"Revenue",     desc:"Completed payments this week" },
-                { icon:"⚠",  label:"Unmatched",   desc:"Questions needing new FAQs"  },
+                { icon: <Bot size={22} color={C.indigo} />, label:"Messages",   desc:"Total chat volume this week"  },
+                { icon: <Target size={22} color="#38bdf8" />, label:"Match Rate",  desc:"FAQ hits vs AI fallbacks"     },
+                { icon: <DollarSign size={22} color="#4ade80" />, label:"Revenue",     desc:"Completed payments this week" },
+                { icon: <AlertTriangle size={22} color="#f59e0b" />,  label:"Unmatched",   desc:"Questions needing new FAQs"  },
               ].map(item => (
                 <Card3D key={item.label} intensity={5} glowColor={C.indigo} style={{
                   background:C.surface, border:`1px solid ${C.border}`,
                   borderRadius:16, padding:"20px 18px",
                 }}>
-                  <div style={{ fontSize:24, marginBottom:10 }}>{item.icon}</div>
+                  <div style={{ marginBottom:10 }}>{item.icon}</div>
                   <div style={{ fontSize:10, color:C.indigo, letterSpacing:".2em", fontWeight:700, fontFamily:"'Orbitron',monospace" }}>{item.label}</div>
                   <div style={{ fontSize:12, color:C.muted, marginTop:5, fontFamily:"system-ui" }}>{item.desc}</div>
                 </Card3D>
@@ -706,23 +861,26 @@ export default function AdminPanel({ onBack }) {
             </div>
             <Glass style={{ padding:"14px 18px", marginBottom:24, borderRadius:14 }}>
               <p style={{ fontSize:13, color:"#60a5fa", fontFamily:"system-ui", lineHeight:1.7, margin:0 }}>
-                🕗 Auto-sends every <strong>Monday at 8:00 AM</strong> to your admin Gmail.<br/>
+                <Clock size={14} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 6 }} />
+                Auto-sends every <strong>Monday at 8:00 AM</strong> to your admin Gmail.<br/>
                 Use the button below to trigger a report right now for testing.
               </p>
             </Glass>
             {reportMsg.text && <AMsg ok={reportMsg.ok} text={reportMsg.text} />}
-            <Btn onClick={sendReportNow} disabled={reportSending}>
-              {reportSending ? "Sending…" : "⚡ Send Report Now"}
+            <Btn onClick={sendReportNow} disabled={reportSending} style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+              <Zap size={14} />
+              {reportSending ? "Sending…" : "Send Report Now"}
             </Btn>
           </TabCard>
         )}
 
         {/* ── CHAIN MONITOR TAB ── */}
         {activeTab==="chain" && (
-          <TabCard title="⛓ Blockchain Monitor" desc="View recent on-chain transactions to your configured crypto wallets in real time. Supports BTC, ETH, SOL, and USDT (auto-detects Tron vs ERC-20).">
+          <TabCard title="Blockchain Monitor" desc="View recent on-chain transactions to your configured crypto wallets in real time. Supports BTC, ETH, SOL, and USDT (auto-detects Tron vs ERC-20).">
             {chainError && <AMsg ok={false} text={chainError} />}
-            <Btn onClick={fetchChainData} disabled={chainLoading} style={{ marginBottom:28 }}>
-              {chainLoading ? "Fetching…" : "🔍 Fetch Latest Transactions"}
+            <Btn onClick={fetchChainData} disabled={chainLoading} style={{ marginBottom:28, display:"inline-flex", alignItems:"center", gap:6 }}>
+              <Search size={14} />
+              {chainLoading ? "Fetching…" : "Fetch Latest Transactions"}
             </Btn>
 
             {chainData && (
@@ -757,7 +915,8 @@ export default function AdminPanel({ onBack }) {
                           <div style={{
                             width:38, height:38, borderRadius:10, flexShrink:0,
                             background:`${color}18`, border:`1px solid ${color}30`,
-                            display:"flex", alignItems:"center", justifyContent:"center", fontSize:20,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:20, fontWeight: 700, fontFamily: "'Orbitron', monospace", color
                           }}>{CRYPTO_ICONS[coin]}</div>
                           <div>
                             <div style={{ fontSize:13, fontWeight:700, color:C.text, fontFamily:"'Orbitron',monospace", letterSpacing:".1em" }}>{coin}</div>
@@ -778,7 +937,9 @@ export default function AdminPanel({ onBack }) {
                       </div>
 
                       {hasError && (
-                        <div style={{ padding:"14px 22px", fontSize:13, color:"#f87171", fontFamily:"system-ui" }}>⚠ {txs.error}</div>
+                        <div style={{ padding:"14px 22px", fontSize:13, color:"#f87171", fontFamily:"system-ui", display:"flex", alignItems:"center", gap:6 }}>
+                          <AlertTriangle size={14} /> {txs.error}
+                        </div>
                       )}
                       {!hasError && rows.length === 0 && (
                         <div style={{ padding:"22px", fontSize:13, color:C.dim, fontFamily:"system-ui", textAlign:"center" }}>No recent transactions found</div>
@@ -794,11 +955,19 @@ export default function AdminPanel({ onBack }) {
                           }}>
                             <div style={{
                               width:34, height:34, borderRadius:"50%", flexShrink:0,
-                              display:"flex", alignItems:"center", justifyContent:"center", fontSize:15,
+                              display:"flex", alignItems:"center", justifyContent:"center",
                               background: isFail ? "rgba(239,68,68,0.12)" : isRcv ? "rgba(52,211,153,0.12)" : "rgba(239,68,68,0.12)",
                               border:`1px solid ${isFail ? "rgba(239,68,68,0.3)" : isRcv ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`,
                             }}>
-                              {isFail ? "✗" : isRcv ? "↓" : tx.type==="transaction" ? "→" : "↑"}
+                              {isFail ? (
+                                <X size={14} color="#f87171" />
+                              ) : isRcv ? (
+                                <ArrowDown size={14} color="#34d399" />
+                              ) : tx.type==="transaction" ? (
+                                <ArrowRight size={14} color="#a5b4fc" />
+                              ) : (
+                                <ArrowUp size={14} color="#f87171" />
+                              )}
                             </div>
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
@@ -817,8 +986,12 @@ export default function AdminPanel({ onBack }) {
                                 fontSize:11, color:color, textDecoration:"none", flexShrink:0,
                                 background:`${color}12`, border:`1px solid ${color}30`,
                                 borderRadius:8, padding:"5px 11px", fontFamily:"system-ui", fontWeight:600,
+                                display:"inline-flex", alignItems:"center", gap:4,
                               }}
-                            >TX ↗</a>
+                            >
+                              <span>TX</span>
+                              <ExternalLink size={10} />
+                            </a>
                           </div>
                         );
                       })}
@@ -877,8 +1050,11 @@ function AdminFAQEditor({ faqs, onChange, onAdd, onRemove }) {
               {faqs.length > 1 && (
                 <button onClick={() => onRemove(i)} style={{
                   background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)",
-                  borderRadius:8, color:"#f87171", cursor:"pointer", fontSize:13, padding:"4px 10px",
-                }}>✕</button>
+                  borderRadius:8, color:"#f87171", cursor:"pointer", padding:"4px 8px",
+                  display:"inline-flex", alignItems:"center", justifyContent:"center",
+                }} title="Remove FAQ">
+                  <X size={13} />
+                </button>
               )}
             </div>
             <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>

@@ -2,15 +2,17 @@
   "name": "axxon",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently \"PORT=3001 node server.js\" \"vite --port 5000\"",
-    "dev:frontend": "vite --port 5000",
+    "dev": "node server.js",
+    "dev:frontend": "vite --port 3000",
     "dev:backend": "node server.js",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "vite build",
     "server": "node server.js",
     "start": "node server.js"
   },
   "dependencies": {
+    "@google/genai": "^2.15.0",
     "@google/generative-ai": "^0.24.1",
     "@noble/post-quantum": "^0.6.1",
     "axios": "^1.6.0",
@@ -19,12 +21,17 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
+    "firebase": "^12.17.0",
     "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^1.28.0",
     "node-cron": "^4.6.0",
     "nodemailer": "^8.0.11",
     "pg": "^8.11.5",
+    "pg-mem": "^3.0.14",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

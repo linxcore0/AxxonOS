@@ -1,3 +1,5 @@
+import { BarChart3 } from "lucide-react";
+
 export default function AnalyticsPanel({ stats, loading }) {
   if (loading) {
     return (
@@ -49,8 +51,12 @@ export default function AnalyticsPanel({ stats, loading }) {
       marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)",
       paddingTop: 16,
     }}>
-      <div style={{ fontSize: 9, fontWeight: 700, color: "#6366f1", letterSpacing: ".2em", marginBottom: 14 }}>
-        📊 BOT ANALYTICS
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        fontSize: 9, fontWeight: 700, color: "#6366f1", letterSpacing: ".2em", marginBottom: 14,
+      }}>
+        <BarChart3 size={13} />
+        <span>BOT ANALYTICS</span>
       </div>
 
       {/* Stat chips */}

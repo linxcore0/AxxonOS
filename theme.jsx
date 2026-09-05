@@ -3,25 +3,108 @@
  * Shared design tokens, components, and utilities.
  */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { Sun, Moon } from "lucide-react";
 
 // ── Colour tokens ─────────────────────────────────────────────────────────────
 export const C = {
-  bg:        "#030308",
-  surface:   "rgba(255,255,255,0.035)",
-  surfaceHi: "rgba(255,255,255,0.065)",
-  border:    "rgba(255,255,255,0.08)",
-  borderHi:  "rgba(99,102,241,0.45)",
+  bg:        "var(--bg, #0a0e17)",
+  surface:   "var(--surface, rgba(255,255,255,0.035))",
+  surfaceHi: "var(--surface-hi, rgba(255,255,255,0.07))",
+  border:    "var(--border, rgba(255,255,255,0.08))",
+  borderHi:  "var(--border-hi, rgba(99,102,241,0.5))",
   blue:      "#3b82f6",
   indigo:    "#6366f1",
+  emerald:   "#10b981",
+  cyan:      "#06b6d4",
   violet:    "#8b5cf6",
+  amber:     "#f59e0b",
   pink:      "#ec4899",
-  text:      "#f1f5f9",
-  muted:     "#64748b",
-  dim:       "#334155",
-  grad:      "linear-gradient(135deg,#3b82f6 0%,#6366f1 55%,#8b5cf6 100%)",
+  text:      "var(--text, #f8fafc)",
+  muted:     "var(--muted, #94a3b8)",
+  dim:       "var(--dim, #64748b)",
+  cardBg:    "var(--card-bg, rgba(15,23,42,0.92))",
+  grad:      "linear-gradient(135deg, #6366f1 0%, #3b82f6 45%, #10b981 100%)",
   gradGlow:  "rgba(99,102,241,0.35)",
 };
+
+// Initialize theme on script load
+try {
+  const savedTheme = localStorage.getItem("axxon_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", savedTheme);
+} catch {}
+
+export function ThemeToggle({ style = {}, compact = false, showLabel = true, className = "" }) {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("axxon_theme") || "dark";
+    } catch {
+      return "dark";
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem("axxon_theme", theme);
+    } catch {}
+  }, [theme]);
+
+  const isDark = theme === "dark";
+
+  const toggle = () => {
+    const next = isDark ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("axxon_theme", next);
+    } catch {}
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      type="button"
+      className={className}
+      title={`Switch to ${isDark ? "Light" : "Dark"} Mode`}
+      aria-label={`Switch to ${isDark ? "Light" : "Dark"} Mode`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        padding: compact ? "8px" : "6px 14px",
+        minWidth: compact ? 42 : "auto",
+        minHeight: 42,
+        borderRadius: compact ? 12 : 20,
+        background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+        border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"}`,
+        color: isDark ? "#e2e8f0" : "#1e293b",
+        fontSize: 11,
+        fontWeight: 600,
+        fontFamily: "system-ui, sans-serif",
+        cursor: "pointer",
+        transition: "all 0.25s ease",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        touchAction: "manipulation",
+        ...style,
+      }}
+    >
+      {isDark ? (
+        <>
+          <Sun size={15} style={{ color: "#fbbf24", flexShrink: 0 }} />
+          {showLabel && !compact && <span>Light Mode</span>}
+        </>
+      ) : (
+        <>
+          <Moon size={15} style={{ color: "#6366f1", flexShrink: 0 }} />
+          {showLabel && !compact && <span>Dark Mode</span>}
+        </>
+      )}
+    </button>
+  );
+}
 
 // ── 3-D tilt card ─────────────────────────────────────────────────────────────
 /**
@@ -42,8 +125,8 @@ export function Card3D({ children, style = {}, intensity = 12, glowColor = C.ind
   function onLeave() { setT({ rx: 0, ry: 0, over: false }); }
 
   const glow = t.over
-    ? `0 0 0 1px ${glowColor}60, 0 8px 40px ${glowColor}30, 0 32px 80px rgba(0,0,0,0.6)`
-    : `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${C.border}`;
+    ? `0 0 0 1px ${glowColor}50, 0 8px 30px ${glowColor}20, 0 24px 60px rgba(0,0,0,0.5)`
+    : `0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px ${C.border}`;
 
   return (
     <div
@@ -52,7 +135,7 @@ export function Card3D({ children, style = {}, intensity = 12, glowColor = C.ind
       onMouseMove={onMove}
       onMouseLeave={onLeave}
       style={{
-        transform:      `perspective(900px) rotateX(${t.rx}deg) rotateY(${t.ry}deg) translateZ(${t.over ? 6 : 0}px)`,
+        transform:      `perspective(900px) rotateX(${t.rx}deg) rotateY(${t.ry}deg) translateZ(${t.over ? 4 : 0}px)`,
         transition:     t.over ? "transform 0.08s ease, box-shadow 0.2s ease" : "transform 0.5s ease, box-shadow 0.3s ease",
         transformStyle: "preserve-3d",
         boxShadow:      glow,
@@ -74,7 +157,7 @@ export function Glass({ children, style = {}, accent }) {
       backdropFilter:    "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
       border:            `1px solid ${accent ? C.borderHi : C.border}`,
-      borderRadius:      20,
+      borderRadius:      16,
       ...style,
     }}>
       {children}
@@ -82,57 +165,39 @@ export function Glass({ children, style = {}, accent }) {
   );
 }
 
-// ── Animated 3-D background ───────────────────────────────────────────────────
+// ── Executive Ambient background ───────────────────────────────────────────────
 export function SceneBg() {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none", background: C.bg }}>
-      {/* Aurora blobs */}
+      {/* Soft executive ambient colorful spotlights */}
       <div style={{
-        position: "absolute", top: "-10%", left: "15%",
-        width: 700, height: 700, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 65%)",
-        animation: "floatA 14s ease-in-out infinite",
-        filter: "blur(1px)",
+        position: "absolute", top: "-20%", left: "15%",
+        width: 850, height: 850, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(99,102,241,0.08) 0%, rgba(59,130,246,0.03) 45%, transparent 70%)",
+        animation: "floatA 18s ease-in-out infinite",
+        filter: "blur(65px)",
       }} />
       <div style={{
-        position: "absolute", bottom: "0%", right: "10%",
-        width: 600, height: 600, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 65%)",
-        animation: "floatB 18s ease-in-out infinite",
-        filter: "blur(1px)",
+        position: "absolute", bottom: "-15%", right: "10%",
+        width: 800, height: 800, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(16,185,129,0.07) 0%, rgba(6,182,212,0.02) 50%, transparent 70%)",
+        animation: "floatB 22s ease-in-out infinite",
+        filter: "blur(75px)",
       }} />
       <div style={{
-        position: "absolute", top: "50%", left: "-5%",
-        width: 400, height: 400, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 65%)",
-        animation: "floatA 22s ease-in-out 4s infinite",
+        position: "absolute", top: "40%", right: "30%",
+        width: 500, height: 500, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 65%)",
+        animation: "floatA 25s ease-in-out 4s infinite",
+        filter: "blur(50px)",
       }} />
-      {/* Grid overlay */}
+      {/* Precision micro grid overlay */}
       <div style={{
-        position: "absolute", inset: 0, opacity: 0.018,
+        position: "absolute", inset: 0, opacity: 0.025,
         backgroundImage:
-          "linear-gradient(rgba(99,102,241,1) 1px,transparent 1px), linear-gradient(90deg,rgba(99,102,241,1) 1px,transparent 1px)",
-        backgroundSize: "56px 56px",
+          "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)",
+        backgroundSize: "32px 32px",
       }} />
-      {/* Floating dots */}
-      {[
-        { top:"12%", left:"8%",  size:3, delay:"0s",  dur:"6s"  },
-        { top:"28%", right:"12%",size:2, delay:"1.5s", dur:"8s"  },
-        { top:"68%", left:"22%", size:3, delay:"3s",  dur:"7s"  },
-        { top:"82%", right:"25%",size:2, delay:"0.8s", dur:"9s"  },
-        { top:"45%", left:"60%", size:2, delay:"2s",  dur:"11s" },
-        { top:"18%", left:"75%", size:3, delay:"4s",  dur:"7.5s"},
-      ].map((d, i) => (
-        <div key={i} style={{
-          position: "absolute",
-          top: d.top, left: d.left, right: d.right,
-          width: d.size, height: d.size, borderRadius: "50%",
-          background: C.indigo,
-          opacity: 0.4,
-          boxShadow: `0 0 ${d.size * 3}px ${C.indigo}`,
-          animation: `floatDot ${d.dur} ease-in-out ${d.delay} infinite`,
-        }} />
-      ))}
     </div>
   );
 }
@@ -141,31 +206,31 @@ export function SceneBg() {
 export function Btn({ children, onClick, variant = "primary", style = {}, disabled }) {
   const [hov, setHov] = useState(false);
   const base = {
-    border: "none", borderRadius: 12, fontFamily: "'Orbitron',monospace",
-    fontSize: 11, fontWeight: 700, letterSpacing: "0.2em",
-    cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s",
-    padding: "13px 28px", display: "inline-flex", alignItems: "center",
+    border: "none", borderRadius: 10, fontFamily: "system-ui, sans-serif",
+    fontSize: 12, fontWeight: 600, letterSpacing: "0.05em",
+    cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+    padding: "12px 24px", display: "inline-flex", alignItems: "center",
     justifyContent: "center", gap: 8,
   };
   const styles = {
     primary: {
-      background: hov ? "linear-gradient(135deg,#4f93ff,#7c7ef7,#a07cf7)" : C.grad,
+      background: hov ? "linear-gradient(135deg, #4f46e5 0%, #2563eb 50%, #059669 100%)" : C.grad,
       color: "#fff",
       boxShadow: hov
-        ? "0 8px 32px rgba(99,102,241,0.55), 0 0 0 1px rgba(99,102,241,0.3)"
-        : "0 4px 20px rgba(99,102,241,0.35)",
-      transform: hov ? "translateY(-2px)" : "none",
+        ? "0 6px 24px rgba(99,102,241,0.45)"
+        : "0 2px 14px rgba(99,102,241,0.25)",
+      transform: hov ? "translateY(-1px)" : "none",
       opacity: disabled ? 0.45 : 1,
     },
     ghost: {
-      background: hov ? "rgba(255,255,255,0.07)" : "transparent",
-      border: "1px solid rgba(255,255,255,0.15)",
+      background: hov ? "rgba(255,255,255,0.06)" : "transparent",
+      border: "1px solid rgba(255,255,255,0.12)",
       color: hov ? "#fff" : "#94a3b8",
       transform: hov ? "translateY(-1px)" : "none",
     },
     danger: {
-      background: hov ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.12)",
-      border: "1px solid rgba(239,68,68,0.4)",
+      background: hov ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.1)",
+      border: "1px solid rgba(239,68,68,0.3)",
       color: "#f87171",
     },
   };
@@ -185,20 +250,20 @@ export function Btn({ children, onClick, variant = "primary", style = {}, disabl
 // ── Input ─────────────────────────────────────────────────────────────────────
 export function Input({ label, ...props }) {
   return (
-    <div style={{ marginBottom: 18 }}>
+    <div style={{ marginBottom: 16 }}>
       {label && (
         <label style={{
-          display: "block", fontSize: 10, letterSpacing: "0.2em",
-          color: C.muted, marginBottom: 8, fontFamily: "'Orbitron',monospace",
+          display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
+          color: C.muted, marginBottom: 6, fontFamily: "system-ui, sans-serif",
         }}>{label}</label>
       )}
       <input
         {...props}
         style={{
-          width: "100%", background: "rgba(255,255,255,0.045)",
-          border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12,
-          color: C.text, fontSize: 14, padding: "13px 16px",
-          fontFamily: "system-ui,sans-serif", outline: "none",
+          width: "100%", background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
+          color: C.text, fontSize: 13, padding: "11px 14px",
+          fontFamily: "system-ui, sans-serif", outline: "none",
           transition: "border-color 0.2s, box-shadow 0.2s",
           ...(props.style || {}),
         }}
@@ -214,10 +279,10 @@ export function Badge({ children, color = C.indigo }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 5,
-      background: `${color}18`, border: `1px solid ${color}35`,
-      borderRadius: 999, padding: "4px 12px",
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.15em",
-      color, fontFamily: "'Orbitron',monospace",
+      background: `${color}15`, border: `1px solid ${color}30`,
+      borderRadius: 999, padding: "3px 10px",
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+      color, fontFamily: "system-ui, sans-serif",
     }}>
       {children}
     </span>
@@ -229,13 +294,13 @@ export function StatCard({ icon, label, value, sub, color = C.indigo }) {
   return (
     <Card3D glowColor={color} style={{
       background: C.surface, border: `1px solid ${C.border}`,
-      borderRadius: 20, padding: "28px 24px",
+      borderRadius: 16, padding: "24px 20px",
     }}>
-      <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
-      <div style={{ fontSize: 10, letterSpacing: "0.2em", color: C.muted, marginBottom: 10, fontFamily: "'Orbitron',monospace" }}>
+      {icon && <div style={{ fontSize: 22, color, marginBottom: 10 }}>{icon}</div>}
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", color: C.muted, marginBottom: 8, fontFamily: "system-ui, sans-serif" }}>
         {label}
       </div>
-      <div style={{ fontSize: 34, fontWeight: 900, color: C.text, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, color: C.text, lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: C.dim, marginTop: 8, fontFamily: "system-ui" }}>{sub}</div>}
     </Card3D>
   );
@@ -244,25 +309,25 @@ export function StatCard({ icon, label, value, sub, color = C.indigo }) {
 // ── Section heading ───────────────────────────────────────────────────────────
 export function SectionHeading({ eyebrow, title, sub }) {
   return (
-    <div style={{ textAlign: "center", marginBottom: 56 }}>
+    <div style={{ textAlign: "center", marginBottom: 48 }}>
       {eyebrow && (
         <div style={{
           display: "inline-flex", alignItems: "center", gap: 8,
-          background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)",
-          borderRadius: 999, padding: "6px 18px",
-          fontSize: 10, letterSpacing: "0.3em", color: C.indigo,
-          fontFamily: "'Orbitron',monospace", marginBottom: 20,
+          background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)",
+          borderRadius: 999, padding: "5px 16px",
+          fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", color: C.indigo,
+          fontFamily: "system-ui, sans-serif", marginBottom: 16, textTransform: "uppercase"
         }}>{eyebrow}</div>
       )}
       <h2 style={{
-        fontSize: "clamp(28px,5vw,48px)", fontWeight: 900,
+        fontSize: "clamp(26px,4.5vw,42px)", fontWeight: 800,
         background: C.grad, WebkitBackgroundClip: "text",
         WebkitTextFillColor: "transparent", backgroundClip: "text",
-        fontFamily: "'Orbitron',monospace", letterSpacing: "0.05em",
-        marginBottom: 16, lineHeight: 1.15,
+        fontFamily: "'Orbitron', sans-serif", letterSpacing: "0.02em",
+        marginBottom: 12, lineHeight: 1.2,
       }}>{title}</h2>
       {sub && (
-        <p style={{ fontSize: 15, color: C.muted, fontFamily: "system-ui", maxWidth: 540, margin: "0 auto", lineHeight: 1.75 }}>
+        <p style={{ fontSize: 14, color: C.muted, fontFamily: "system-ui, sans-serif", maxWidth: 540, margin: "0 auto", lineHeight: 1.6 }}>
           {sub}
         </p>
       )}
@@ -270,51 +335,64 @@ export function SectionHeading({ eyebrow, title, sub }) {
   );
 }
 
-// ── Global CSS (animations + resets) ─────────────────────────────────────────
+// ── Global CSS ─────────────────────────────────────────────────────────────────
 export const globalCSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0b0f19;
+    --surface: rgba(255,255,255,0.035);
+    --surface-hi: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08);
+    --border-hi: rgba(59,130,246,0.5);
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --dim: #64748b;
+    --card-bg: rgba(15,23,42,0.92);
+  }
+
+  [data-theme="light"] {
+    --bg: #f8fafc;
+    --surface: rgba(255,255,255,0.9);
+    --surface-hi: rgba(241,245,249,0.95);
+    --border: rgba(0,0,0,0.08);
+    --border-hi: rgba(37,99,235,0.5);
+    --text: #0f172a;
+    --muted: #475569;
+    --dim: #94a3b8;
+    --card-bg: rgba(255,255,255,0.98);
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: #030308; color: #f1f5f9; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); transition: background-color 0.3s ease, color 0.3s ease; }
   body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
-  input::placeholder, textarea::placeholder { color: #334155; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.25); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(59,130,246,0.45); }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
 
   @keyframes floatA {
     0%,100% { transform: translate(0,0) scale(1); }
-    33%      { transform: translate(30px,-20px) scale(1.05); }
-    66%      { transform: translate(-20px,15px) scale(0.97); }
+    50%      { transform: translate(20px,-15px) scale(1.03); }
   }
   @keyframes floatB {
     0%,100% { transform: translate(0,0) scale(1); }
-    40%      { transform: translate(-25px,20px) scale(1.04); }
-    70%      { transform: translate(20px,-10px) scale(0.98); }
-  }
-  @keyframes floatDot {
-    0%,100% { transform: translateY(0); opacity: 0.4; }
-    50%      { transform: translateY(-12px); opacity: 0.8; }
+    50%      { transform: translate(-15px,15px) scale(0.98); }
   }
   @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes fadeIn {
     from { opacity: 0; } to { opacity: 1; }
   }
-  @keyframes pulse3d {
-    0%,100% { box-shadow: 0 0 30px rgba(99,102,241,0.3), 0 0 60px rgba(99,102,241,0.1); }
-    50%     { box-shadow: 0 0 60px rgba(99,102,241,0.6), 0 0 100px rgba(99,102,241,0.25); }
-  }
   @keyframes spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
-  @keyframes bounceDot {
-    0%,80%,100% { transform: scale(0.6); opacity: 0.3; }
-    40%         { transform: scale(1.3); opacity: 1; }
-  }
   @keyframes logoGlow {
-    0%,100% { filter: drop-shadow(0 0 24px rgba(99,102,241,0.5)) drop-shadow(0 0 48px rgba(99,102,241,0.2)); }
-    50%     { filter: drop-shadow(0 0 60px rgba(99,102,241,0.9)) drop-shadow(0 0 100px rgba(99,102,241,0.4)); }
+    0%,100% { filter: drop-shadow(0 0 20px rgba(99,102,241,0.4)); }
+    50%     { filter: drop-shadow(0 0 35px rgba(99,102,241,0.7)); }
   }
 `;
+

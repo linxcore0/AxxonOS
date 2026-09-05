@@ -5,12 +5,13 @@ import Dashboard    from "./Dashboard";
 import SubscribePage from "./SubscribePage";
 import AdminPanel   from "./AdminPanel";
 import BotPage      from "./BotPage";
+import TrialPage    from "./TrialPage";
 import { globalCSS, C } from "./theme.jsx";
 
-const PAID_PLANS = ["trial", "basic", "spark", "super", "king", "ultra"];
+const PAID_PLANS = ["trial", "starter", "basic", "spark", "super", "king", "ultra"];
 
 export default function AxxonUI() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [page,    setPage]    = useState("landing");
   const [user,    setUser]    = useState(null);
   const [botId,   setBotId]   = useState(null);
@@ -19,33 +20,47 @@ export default function AxxonUI() {
     const pathname = window.location.pathname;
     if (pathname.startsWith("/bot/")) {
       const id = pathname.slice(5);
-      if (id) { setBotId(id); setPage("botpage"); setLoading(false); return; }
+      if (id) { setBotId(id); setPage("botpage"); return; }
     }
     try {
       const token = localStorage.getItem("axxon_token");
       const plan  = localStorage.getItem("axxon_plan") || "free";
       const bots  = parseInt(localStorage.getItem("axxon_bots") || "0", 10);
+      const currency = localStorage.getItem("axxon_currency") || "USD";
       if (token) {
-        setUser({ token, plan, bots });
-        setPage(PAID_PLANS.includes(plan) ? "dashboard" : "subscribe");
+        setUser({ token, plan, bots, currency });
+        setPage(PAID_PLANS.includes(plan) ? "dashboard" : "trial");
+
+        // Fetch live profile to sync currency & plan
+        fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json())
+          .then(data => {
+            if (data && data.currency) {
+              localStorage.setItem("axxon_currency", data.currency);
+              setUser(prev => prev ? { ...prev, currency: data.currency, plan: data.plan || prev.plan } : prev);
+            }
+          })
+          .catch(() => {});
       }
     } catch {}
-    const t = setTimeout(() => setLoading(false), 3400);
-    return () => clearTimeout(t);
   }, []);
 
-  const handleLogin  = (token, plan, bots) => {
+  const handleLogin  = (token, plan, bots, currency) => {
+    const userCur = currency || "USD";
     localStorage.setItem("axxon_token", token);
     localStorage.setItem("axxon_plan",  plan || "free");
     localStorage.setItem("axxon_bots",  bots ?? 0);
-    const u = { token, plan: plan || "free", bots: bots ?? 0 };
+    localStorage.setItem("axxon_currency", userCur);
+    const u = { token, plan: plan || "free", bots: bots ?? 0, currency: userCur };
     setUser(u);
-    setPage(PAID_PLANS.includes(plan) ? "dashboard" : "subscribe");
+    // Directly direct customers to Trial page after login if not already on a paid/trial plan!
+    setPage(PAID_PLANS.includes(plan) ? "dashboard" : "trial");
   };
   const handleLogout = () => {
     localStorage.removeItem("axxon_token");
     localStorage.removeItem("axxon_plan");
     localStorage.removeItem("axxon_bots");
+    localStorage.removeItem("axxon_currency");
     setUser(null); setPage("landing");
   };
   const userEmail = (() => {
@@ -169,8 +184,33 @@ export default function AxxonUI() {
         {page === "botpage"   && <BotPage botId={botId} />}
         {page === "landing"   && <LandingPage onGetStarted={() => setPage("auth")} onAdmin={() => setPage("admin")} />}
         {page === "auth"      && <AuthPage onLogin={handleLogin} onBack={() => setPage("landing")} />}
-        {page === "subscribe" && <SubscribePage user={{ email: userEmail }} onLogout={handleLogout} />}
-        {page === "dashboard" && <Dashboard user={user} onLogout={handleLogout} onSubscribe={() => setPage("subscribe")} />}
+        {page === "trial"     && (
+          <TrialPage
+            user={{ ...user, email: userEmail }}
+            onTrialActivated={(updated) => {
+              setUser(prev => ({ ...prev, ...updated }));
+              setPage("dashboard");
+            }}
+            onSubscribe={() => setPage("subscribe")}
+            onDashboard={() => setPage("dashboard")}
+            onLogout={handleLogout}
+          />
+        )}
+        {page === "subscribe" && (
+          <SubscribePage
+            user={{ ...user, email: userEmail }}
+            onLogout={handleLogout}
+            onDashboard={() => setPage("dashboard")}
+          />
+        )}
+        {page === "dashboard" && (
+          <Dashboard
+            user={user}
+            onLogout={handleLogout}
+            onSubscribe={() => setPage("subscribe")}
+            onTrial={() => setPage("trial")}
+          />
+        )}
         {page === "admin"     && <AdminPanel onBack={() => setPage("landing")} />}
       </div>
 

@@ -1,58 +1,104 @@
 import React, { useState, useRef } from "react";
+import {
+  Brain,
+  Zap,
+  Globe,
+  Users,
+  BarChart3,
+  ShieldCheck,
+  UserPlus,
+  Bot,
+  Code2,
+  Check,
+  ArrowRight,
+  Sparkles,
+  Mail,
+  Lock,
+} from "lucide-react";
+import Navbar from "./Navbar";
 import PaymentModal from "./PaymentModal";
 import { C, SceneBg, Card3D, Glass, Btn, SectionHeading, globalCSS } from "./theme.jsx";
+import { subscribeToPricing } from "./pricingService.js";
+import { CURRENCIES, convertUSD } from "./currencyUtils.js";
 
-const PLANS = [
+const DEFAULT_PLANS = [
   {
-    id: "basic", name: "Starter", price: 100, duration: "7 Days",
-    messages: "5,000", bots: "2", color: "#6366f1",
-    tagline: "Perfect for trying it out",
-    features: ["2 Chatbots", "5,000 Messages / month", "7 Day Access", "Basic Analytics", "Email Support", "FAQ Training"],
+    id: "starter", name: "Starter Plan", price: 34, duration: "1 Month",
+    messages: "3,000", bots: "1", color: "#06b6d4",
+    tagline: "1 Chatbot for 1 full month",
+    features: ["1 Chatbot", "3,000 Messages / month", "1 Month Access (30 Days)", "Basic Analytics", "Standard Support", "FAQ Training"],
   },
   {
-    id: "spark", name: "Spark", price: 300, duration: "30 Days",
-    messages: "50,000", bots: "6", color: "#3b82f6",
+    id: "basic", name: "Basic Plan", price: 100, duration: "7 Days",
+    messages: "5,000", bots: "2", color: "#3b82f6",
+    tagline: "Perfect for evaluation and testing",
+    features: ["2 Chatbots", "5,000 Messages / month", "7 Day Access", "Basic Analytics", "Standard Support", "FAQ Training"],
+  },
+  {
+    id: "spark", name: "Spark Plan", price: 300, duration: "30 Days",
+    messages: "50,000", bots: "6", color: "#06b6d4",
     tagline: "For growing businesses",
     features: ["6 Chatbots", "50,000 Messages / month", "30 Day Access", "Advanced Analytics", "Priority Support", "FAQ Training"],
   },
   {
-    id: "super", name: "Super", price: 700, duration: "30 Days",
-    messages: "200,000", bots: "20", color: "#8b5cf6",
-    tagline: "For teams & agencies",
+    id: "super", name: "Super Plan", price: 700, duration: "30 Days",
+    messages: "200,000", bots: "20", color: "#10b981",
+    tagline: "For teams & scaling agencies",
     features: ["20 Chatbots", "200,000 Messages / month", "30 Day Access", "Real-time Analytics", "Priority Support", "Human Handoff", "Custom Branding"],
   },
   {
-    id: "king", name: "King 👑", price: 4000, duration: "1 Year",
+    id: "king", name: "King Plan", price: 4000, duration: "1 Year",
     messages: "20,000,000", bots: "Unlimited", color: "#3b82f6",
-    tagline: "For serious operations",
+    tagline: "For high-volume operations",
     features: ["Unlimited Chatbots", "20M Messages / year", "1 Year Access", "Real-time Analytics", "Dedicated Support", "Human Handoff", "White Label", "API Access"],
     featured: true,
   },
   {
-    id: "ultra", name: "Ultra ⚡", price: 20000, duration: "Lifetime",
+    id: "ultra", name: "Ultra Plan", price: 20000, duration: "Lifetime",
     messages: "Unlimited", bots: "Unlimited", color: "#6366f1",
-    tagline: "Own it forever",
+    tagline: "Unrestricted lifetime access",
     features: ["Unlimited Chatbots", "Unlimited Messages", "Lifetime Access", "Real-time Analytics", "24/7 VIP Support", "Human Handoff", "White Label", "API Access", "Custom Integrations"],
   },
 ];
 
 const FEATURES = [
-  { icon: "🧠", title: "AI That Actually Understands", desc: "Your bot learns from your own FAQs and answers questions the way you would." },
-  { icon: "⚡", title: "Live in Under 5 Minutes", desc: "No code, no complicated setup. Just paste a snippet on your site and you're done." },
-  { icon: "🌐", title: "Works on Any Website", desc: "One small embed code that works on Shopify, WordPress, Wix, or any custom site." },
-  { icon: "🤝", title: "Hands Off to You When Needed", desc: "When a question is too complex, the bot gracefully passes it to a real human." },
-  { icon: "📊", title: "See What Your Customers Ask", desc: "Live analytics show you exactly what people ask, so you can improve over time." },
-  { icon: "🔒", title: "Your Data Stays Private", desc: "All conversations and training data belong to you. No sharing, no selling." },
+  { icon: <Brain size={26} color="#06b6d4" />, title: "Context-Aware Intelligence", desc: "Your chatbot learns directly from your FAQs and knowledge base to deliver accurate answers." },
+  { icon: <Zap size={26} color="#0ea5e9" />, title: "Instant Deployment", desc: "Embed in under 5 minutes with a single script tag. No complex development or backend setup required." },
+  { icon: <Globe size={26} color="#10b981" />, title: "Universal Platform Support", desc: "Works seamlessly across Shopify, WordPress, Wix, Webflow, React, or any custom website." },
+  { icon: <Users size={26} color="#3b82f6" />, title: "Smart Human Handoff", desc: "When complex queries arise, the bot intelligently routes the interaction to your support team." },
+  { icon: <BarChart3 size={26} color="#06b6d4" />, title: "Real-Time Query Analytics", desc: "Track customer sentiment, popular questions, and conversion performance with live metrics." },
+  { icon: <ShieldCheck size={26} color="#10b981" />, title: "Enterprise Security & Privacy", desc: "Your data and customer conversations remain private, encrypted, and isolated to your instance." },
 ];
 
 export default function LandingPage({ onGetStarted, onAdmin }) {
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [plans, setPlans] = useState(DEFAULT_PLANS);
+  const [userCurrency, setUserCurrency] = useState(
+    localStorage.getItem("axxon_currency") || "USD"
+  );
   const [socials, setSocials] = useState({
     telegram: "", x: "", farcaster: "", linkedin: "", github: "", tiktok: "", discord: "",
   });
 
+  const [markupPercent, setMarkupPercent] = useState(15);
+
+  const handleCurrencyChange = (newCurr) => {
+    setUserCurrency(newCurr);
+    localStorage.setItem("axxon_currency", newCurr);
+  };
+
   React.useEffect(() => {
     fetch("/api/admin/socials").then(r => r.json()).then(d => setSocials(s => ({ ...s, ...d }))).catch(() => {});
+    const unsubscribe = subscribeToPricing(({ prices, markup_percent }) => {
+      if (prices) {
+        setPlans(DEFAULT_PLANS.map(p => ({
+          ...p,
+          price: prices[p.id] ?? p.price,
+        })));
+      }
+      if (markup_percent !== undefined) setMarkupPercent(markup_percent);
+    });
+    return () => unsubscribe();
   }, []);
 
   const PLATFORMS = [
@@ -79,133 +125,107 @@ export default function LandingPage({ onGetStarted, onAdmin }) {
     <div style={{ minHeight: "100vh", position: "relative" }}>
       <SceneBg />
 
-      {/* ── NAV ──────────────────────────────────────────────────── */}
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        height: 70, padding: "0 clamp(16px,4vw,48px)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "rgba(3,3,8,0.75)",
-        backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-        borderBottom: `1px solid ${C.border}`,
-      }}>
-        <div style={{
-          fontFamily: "'Orbitron',monospace", fontWeight: 900, fontSize: 22,
-          letterSpacing: "0.2em",
-          background: C.grad,
-          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-          filter: "drop-shadow(0 0 12px rgba(99,102,241,0.55))",
-        }}>AXXON</div>
-        <Btn onClick={onGetStarted} style={{ padding: "10px 24px", fontSize: 11 }}>
-          Get Started Free →
-        </Btn>
-      </nav>
+      {/* ── RESPONSIVE GLOBAL NAVBAR ───────────────────────────────── */}
+      <Navbar
+        page="landing"
+        currentCurrency={userCurrency}
+        onCurrencyChange={handleCurrencyChange}
+        onAuth={() => onGetStarted()}
+        onNavigate={() => onGetStarted()}
+      />
 
       {/* ── HERO ─────────────────────────────────────────────────── */}
       <section style={{
-        minHeight: "100vh", display: "flex", flexDirection: "column",
+        minHeight: "92vh", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
-        textAlign: "center", padding: "120px clamp(16px,4vw,48px) 80px",
+        textAlign: "center", padding: "110px clamp(16px,4vw,48px) 70px",
         position: "relative", zIndex: 1,
       }}>
-        {/* Floating 3-D rings behind logo */}
         <div style={{
-          position: "absolute", width: 380, height: 380,
-          border: `1px solid rgba(99,102,241,0.12)`,
-          borderRadius: "50%",
-          transform: "perspective(800px) rotateX(65deg)",
-          animation: "spin 30s linear infinite",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", width: 260, height: 260,
-          border: `1px solid rgba(99,102,241,0.09)`,
-          borderRadius: "50%",
-          transform: "perspective(800px) rotateX(65deg)",
-          animation: "spin 20s linear infinite reverse",
-          pointerEvents: "none",
-        }} />
-
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
+          display: "inline-flex", alignItems: "center", gap: 6,
           background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)",
-          borderRadius: 999, padding: "7px 20px",
-          fontSize: 11, letterSpacing: "0.25em", color: C.indigo,
-          fontFamily: "'Orbitron',monospace", marginBottom: 32,
-          animation: "fadeUp 0.7s ease 0.2s both",
-        }}>◆ AI CHATBOT PLATFORM</div>
+          borderRadius: 999, padding: "6px 16px",
+          fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: C.indigo,
+          fontFamily: "system-ui, sans-serif", marginBottom: 28,
+          animation: "fadeUp 0.6s ease both",
+        }}>
+          <Sparkles size={13} />
+          <span>ENTERPRISE AI CHATBOT SYSTEM</span>
+        </div>
 
         <h1 style={{
-          fontFamily: "'Orbitron',monospace", fontWeight: 900,
-          fontSize: "clamp(42px,10vw,100px)", letterSpacing: "0.12em",
-          lineHeight: 1.05,
+          fontFamily: "'Orbitron', sans-serif", fontWeight: 900,
+          fontSize: "clamp(38px,8vw,88px)", letterSpacing: "0.08em",
+          lineHeight: 1.08,
           background: C.grad,
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-          animation: "logoGlow 3s ease-in-out infinite, fadeUp 0.7s ease 0.3s both",
-          marginBottom: 12,
+          animation: "logoGlow 3s ease-in-out infinite, fadeUp 0.6s ease 0.1s both",
+          marginBottom: 10,
         }}>AXXON</h1>
         <div style={{
-          fontFamily: "'Orbitron',monospace", fontSize: "clamp(14px,3vw,22px)",
-          letterSpacing: "0.4em", color: C.dim, marginBottom: 32,
-          animation: "fadeUp 0.7s ease 0.4s both",
-        }}>OS</div>
+          fontFamily: "'Orbitron', sans-serif", fontSize: "clamp(13px,2.5vw,18px)",
+          letterSpacing: "0.35em", color: C.muted, fontWeight: 600, marginBottom: 28,
+          animation: "fadeUp 0.6s ease 0.2s both",
+        }}>OPERATING SYSTEM</div>
 
         <p style={{
-          fontSize: "clamp(15px,2.5vw,19px)", color: C.muted,
-          fontFamily: "system-ui,sans-serif", lineHeight: 1.75,
-          maxWidth: 580, marginBottom: 48,
-          animation: "fadeUp 0.7s ease 0.5s both",
+          fontSize: "clamp(15px,2vw,18px)", color: C.muted,
+          fontFamily: "system-ui, sans-serif", lineHeight: 1.7,
+          maxWidth: 600, marginBottom: 40,
+          animation: "fadeUp 0.6s ease 0.3s both",
         }}>
-          Deploy AI chatbots on your website in minutes — no coding needed.
-          Train them on your own FAQs, accept payments with crypto or card, and watch them work 24/7.
+          Deploy autonomous AI support agents on your web application in minutes. Train on custom knowledge bases, handle real-time customer queries, and scale operations 24/7.
         </p>
 
         <div style={{
-          display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center",
-          animation: "fadeUp 0.7s ease 0.6s both",
+          display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center",
+          animation: "fadeUp 0.6s ease 0.4s both",
         }}>
-          <Btn onClick={onGetStarted} style={{ padding: "15px 36px", fontSize: 12 }}>
-            🚀 Start Free Today
+          <Btn onClick={onGetStarted} style={{ padding: "14px 32px", fontSize: 13 }}>
+            <span>Start Free Trial</span>
+            <ArrowRight size={14} />
           </Btn>
-          <Btn variant="ghost" onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} style={{ padding: "15px 36px", fontSize: 12 }}>
-            See Pricing ↓
+          <Btn variant="ghost" onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} style={{ padding: "14px 32px", fontSize: 13 }}>
+            View Pricing
           </Btn>
         </div>
 
         {/* Trust row */}
         <div style={{
-          display: "flex", gap: 32, marginTop: 64, flexWrap: "wrap", justifyContent: "center",
-          animation: "fadeUp 0.7s ease 0.8s both",
+          display: "flex", gap: 28, marginTop: 56, flexWrap: "wrap", justifyContent: "center",
+          animation: "fadeUp 0.6s ease 0.5s both",
         }}>
-          {["No coding required", "Live in 5 minutes", "Free 3-day trial included"].map(t => (
-            <div key={t} style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 13, fontFamily: "system-ui" }}>
-              <span style={{ color: "#4ade80", fontSize: 15 }}>✓</span> {t}
+          {["Zero coding required", "Deploy in under 5 minutes", "Complimentary trial included"].map(t => (
+            <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, color: C.muted, fontSize: 13, fontFamily: "system-ui, sans-serif" }}>
+              <Check size={14} style={{ color: "#10b981" }} />
+              <span>{t}</span>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── FEATURES ─────────────────────────────────────────────── */}
-      <section style={{ padding: "100px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
+      <section id="features" style={{ padding: "80px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <SectionHeading
-            eyebrow="◆ WHAT YOU GET"
-            title="Everything You Need"
-            sub="All the tools to put a smart chatbot on your site — without hiring a developer."
+            eyebrow="CAPABILITIES"
+            title="Designed for Enterprise Reliability"
+            sub="Comprehensive tools to construct, train, and deploy intelligent AI conversational agents."
           />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 20 }}>
             {FEATURES.map((f, i) => (
               <Card3D key={f.title} glowColor={C.indigo} style={{
                 background: C.surface,
                 border: `1px solid ${C.border}`,
-                borderRadius: 20, padding: "28px 28px",
-                animation: `fadeUp 0.6s ease ${0.1 * i}s both`,
+                borderRadius: 16, padding: "28px 24px",
+                animation: `fadeUp 0.5s ease ${0.08 * i}s both`,
               }}>
-                <div style={{ fontSize: 32, marginBottom: 16 }}>{f.icon}</div>
+                <div style={{ marginBottom: 16 }}>{f.icon}</div>
                 <h3 style={{
-                  fontFamily: "system-ui,sans-serif", fontSize: 16, fontWeight: 700,
-                  color: C.text, marginBottom: 10, lineHeight: 1.3,
+                  fontFamily: "system-ui, sans-serif", fontSize: 16, fontWeight: 700,
+                  color: C.text, marginBottom: 8, lineHeight: 1.3,
                 }}>{f.title}</h3>
-                <p style={{ fontSize: 14, color: C.muted, fontFamily: "system-ui", lineHeight: 1.7 }}>
+                <p style={{ fontSize: 13, color: C.muted, fontFamily: "system-ui, sans-serif", lineHeight: 1.65 }}>
                   {f.desc}
                 </p>
               </Card3D>
@@ -215,97 +235,170 @@ export default function LandingPage({ onGetStarted, onAdmin }) {
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────────────── */}
-      <section style={{ padding: "80px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
+      <section style={{ padding: "70px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <SectionHeading
-            eyebrow="◆ HOW IT WORKS"
-            title="Three Steps to Launch"
-            sub="You'll have a working chatbot before your next coffee break."
+            eyebrow="WORKFLOW"
+            title="Streamlined Setup Process"
+            sub="Launch a customized AI conversational bot with simple configuration steps."
           />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
             {[
-              { step:"01", icon:"📝", title:"Sign up & pick a plan", desc:"Create your account and choose the plan that fits your needs. No contracts, cancel any time." },
-              { step:"02", icon:"🧠", title:"Train your chatbot", desc:"Add your FAQs and business info. Your bot will learn exactly how to answer your customers." },
-              { step:"03", icon:"🚀", title:"Paste & go live", desc:"Copy one line of code onto your site. Your chatbot is now live, answering questions 24/7." },
+              { step:"01", icon:<UserPlus size={24} color="#6366f1" />, title:"Select Subscription", desc:"Choose a flexible plan structured for your traffic requirements. Upgrade or cancel anytime." },
+              { step:"02", icon:<Bot size={24} color="#3b82f6" />, title:"Configure Knowledge", desc:"Input business knowledge, FAQs, and response tone. Your bot assimilates guidelines instantly." },
+              { step:"03", icon:<Code2 size={24} color="#8b5cf6" />, title:"Embed & Activate", desc:"Paste a single line of JS code into your HTML header. Your bot operates autonomously." },
             ].map((s, i) => (
               <Card3D key={s.step} glowColor={C.blue} style={{
                 background: C.surface, border: `1px solid ${C.border}`,
-                borderRadius: 20, padding: "32px 28px",
-                animation: `fadeUp 0.6s ease ${0.15 * i}s both`,
+                borderRadius: 16, padding: "28px 24px",
+                animation: `fadeUp 0.5s ease ${0.1 * i}s both`,
               }}>
                 <div style={{
-                  fontFamily: "'Orbitron',monospace", fontSize: 11, letterSpacing: "0.3em",
-                  color: C.indigo, marginBottom: 16, opacity: 0.7,
+                  fontFamily: "'Orbitron', sans-serif", fontSize: 11, letterSpacing: "0.2em",
+                  color: C.indigo, marginBottom: 14, fontWeight: 700,
                 }}>STEP {s.step}</div>
-                <div style={{ fontSize: 32, marginBottom: 14 }}>{s.icon}</div>
-                <h3 style={{ fontFamily:"system-ui",fontSize:16,fontWeight:700,color:C.text,marginBottom:10 }}>{s.title}</h3>
-                <p style={{ fontSize:14, color:C.muted, fontFamily:"system-ui", lineHeight:1.7 }}>{s.desc}</p>
+                <div style={{ marginBottom: 14 }}>{s.icon}</div>
+                <h3 style={{ fontFamily:"system-ui, sans-serif", fontSize:15, fontWeight:700, color:C.text, marginBottom:8 }}>{s.title}</h3>
+                <p style={{ fontSize:13, color:C.muted, fontFamily:"system-ui, sans-serif", lineHeight:1.6 }}>{s.desc}</p>
               </Card3D>
             ))}
           </div>
         </div>
       </section>
 
+      {/* ── ABOUT / PLATFORM ARCHITECTURE ───────────────────────── */}
+      <section id="about" style={{ padding: "80px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <SectionHeading
+            eyebrow="ARCHITECTURE"
+            title="Next-Generation Conversational Engine"
+            sub="Built on low-latency neural tokenizers and high-availability serverless cloud edge networks."
+          />
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20,
+          }}>
+            <Glass style={{ padding: "30px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Lock size={20} color={C.indigo} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "system-ui" }}>Data Privacy</h3>
+              </div>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, fontFamily: "system-ui" }}>
+                Conversations are never sold or pooled into public training corpuses. Tenant data isolation is strictly enforced.
+              </p>
+            </Glass>
+
+            <Glass style={{ padding: "30px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(16,185,129,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Zap size={20} color="#10b981" />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "system-ui" }}>Sub-50ms Responses</h3>
+              </div>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, fontFamily: "system-ui" }}>
+                Hybrid inverted index and vector search algorithm delivers prompt answers to common customer inquiries instantly.
+              </p>
+            </Glass>
+
+            <Glass style={{ padding: "30px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Globe size={20} color="#3b82f6" />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "system-ui" }}>Global Delivery</h3>
+              </div>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, fontFamily: "system-ui" }}>
+                Worldwide CDN edge distribution guarantees high speed and uptime regardless of visitor geographical origin.
+              </p>
+            </Glass>
+          </div>
+        </div>
+      </section>
+
       {/* ── PRICING ──────────────────────────────────────────────── */}
-      <section id="pricing" style={{ padding: "100px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
+      <section id="pricing" style={{ padding: "80px clamp(16px,4vw,48px)", position: "relative", zIndex: 1 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <SectionHeading
-            eyebrow="◆ PRICING"
-            title="Simple, Honest Pricing"
-            sub="Pay once, use immediately. No monthly gotchas on lower plans."
+            eyebrow="TRANSPARENT PRICING"
+            title="Flexible Subscription Options"
+            sub="Choose the optimal plan to support your customer communication volume."
           />
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
             gap: 20,
           }}>
-            {PLANS.map((plan, i) => (
+            {plans.map((plan, i) => (
               <PlanCard
                 key={plan.id}
                 plan={plan}
+                userCurrency={userCurrency}
+                markupPercent={markupPercent}
                 onSelect={() => setSelectedPlan(plan)}
-                delay={0.08 * i}
+                delay={0.06 * i}
               />
             ))}
           </div>
-          <p style={{ textAlign:"center", marginTop:32, fontSize:13, color:C.dim, fontFamily:"system-ui" }}>
-            💳 Payments accepted via crypto (USDT) and card &nbsp;·&nbsp; Prices in USD
+          <p style={{ textAlign:"center", marginTop:28, fontSize:12, color:C.muted, fontFamily:"system-ui, sans-serif" }}>
+            Payment processing supported in USDT (Crypto) and standard payment cards. Select preferred currency in header.
           </p>
+        </div>
+      </section>
+
+      {/* ── CONTACT ──────────────────────────────────────────────── */}
+      <section id="contact" style={{ padding: "60px clamp(16px,4vw,48px) 80px", position: "relative", zIndex: 1 }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
+          <SectionHeading
+            eyebrow="CONTACT"
+            title="Connect With Support"
+            sub="Need assistance setting up your AI chatbot? Our team is available 24/7."
+          />
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 12,
+            padding: "16px 28px", borderRadius: 16,
+            background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`,
+          }}>
+            <Mail size={20} color={C.indigo} />
+            <span style={{ fontSize: 14, color: C.text, fontFamily: "system-ui", fontWeight: 600 }}>
+              support@axxon.io
+            </span>
+          </div>
         </div>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────── */}
       <footer style={{
         position: "relative", zIndex: 1,
-        padding: "48px clamp(16px,4vw,48px)",
+        padding: "40px clamp(16px,4vw,48px)",
         borderTop: `1px solid ${C.border}`,
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        flexWrap: "wrap", gap: 24,
+        flexWrap: "wrap", gap: 20,
       }}>
         <div>
           <div style={{
-            fontFamily: "'Orbitron',monospace", fontWeight: 900, fontSize: 18,
+            fontFamily: "'Orbitron', sans-serif", fontWeight: 800, fontSize: 16,
             background: C.grad, WebkitBackgroundClip:"text",
             WebkitTextFillColor:"transparent", backgroundClip:"text",
-            marginBottom: 6,
+            marginBottom: 4,
           }}>AXXON OS</div>
-          <div style={{ fontSize: 12, color: C.dim, fontFamily:"system-ui" }}>
-            AI chatbots for everyone. Made by Ahmad.
+          <div style={{ fontSize: 12, color: C.muted, fontFamily:"system-ui, sans-serif" }}>
+            Enterprise AI Chatbot Infrastructure
           </div>
         </div>
         {activeSocials.length > 0 && (
-          <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {activeSocials.map(p => (
               <a key={p.key} href={p.url(socials[p.key])} target="_blank" rel="noopener noreferrer"
                 title={p.label}
                 style={{
-                  width:42, height:42, borderRadius:12,
-                  background:`${p.color}14`, border:`1px solid ${p.color}30`,
+                  width:38, height:38, borderRadius:10,
+                  background:`${p.color}12`, border:`1px solid ${p.color}25`,
                   display:"flex", alignItems:"center", justifyContent:"center",
                   color:p.color, textDecoration:"none", transition:"all 0.2s",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background=`${p.color}28`; e.currentTarget.style.transform="scale(1.1)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background=`${p.color}14`; e.currentTarget.style.transform="scale(1)"; }}
+                onMouseEnter={e => { e.currentTarget.style.background=`${p.color}24`; e.currentTarget.style.transform="translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background=`${p.color}12`; e.currentTarget.style.transform="none"; }}
               >{p.icon}</a>
             ))}
           </div>
@@ -314,15 +407,17 @@ export default function LandingPage({ onGetStarted, onAdmin }) {
           onClick={onAdmin}
           style={{
             background:"none", border:"none", color: C.dim,
-            fontSize:9, letterSpacing:"0.25em", cursor:"pointer",
-            fontFamily:"'Orbitron',monospace", opacity:0.4,
+            fontSize:10, letterSpacing:"0.15em", cursor:"pointer",
+            fontFamily:"system-ui, sans-serif",
           }}
-        >Axxon is a trademark of Wanfortindustries</button>
+        >System Administration</button>
       </footer>
 
       {selectedPlan && (
         <PaymentModal
           plan={selectedPlan}
+          userCurrency={userCurrency}
+          markupPercent={markupPercent}
           onClose={() => setSelectedPlan(null)}
           onGetStarted={onGetStarted}
         />
@@ -333,16 +428,18 @@ export default function LandingPage({ onGetStarted, onAdmin }) {
   );
 }
 
-function PlanCard({ plan, onSelect, delay }) {
+function PlanCard({ plan, userCurrency = "USD", markupPercent = 15, onSelect, delay }) {
   const [hov, setHov] = useState(false);
   const ref = useRef(null);
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
+
+  const converted = convertUSD(plan.price, userCurrency, markupPercent);
 
   function onMove(e) {
     const r  = ref.current.getBoundingClientRect();
     const dx = (e.clientX - r.left - r.width  / 2) / (r.width  / 2);
     const dy = (e.clientY - r.top  - r.height / 2) / (r.height / 2);
-    setTilt({ rx: -dy * 10, ry: dx * 10 });
+    setTilt({ rx: -dy * 8, ry: dx * 8 });
   }
   function onLeave() { setTilt({ rx:0, ry:0 }); setHov(false); }
 
@@ -353,24 +450,24 @@ function PlanCard({ plan, onSelect, delay }) {
       onMouseLeave={onLeave}
       onMouseEnter={() => setHov(true)}
       style={{
-        transform: `perspective(900px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateZ(${hov ? 8 : 0}px)`,
+        transform: `perspective(900px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateZ(${hov ? 6 : 0}px)`,
         transition: hov ? "transform 0.08s ease, box-shadow 0.2s" : "transform 0.5s ease, box-shadow 0.3s",
         transformStyle: "preserve-3d",
         background: plan.featured
-          ? `linear-gradient(160deg, rgba(59,130,246,0.12), rgba(99,102,241,0.12))`
+          ? `linear-gradient(160deg, rgba(59,130,246,0.1), rgba(99,102,241,0.1))`
           : C.surface,
         border: plan.featured
-          ? `1px solid rgba(99,102,241,0.45)`
+          ? `1px solid rgba(99,102,241,0.4)`
           : `1px solid ${C.border}`,
-        borderRadius: 22,
-        padding: "32px 28px",
+        borderRadius: 18,
+        padding: "28px 24px",
         display: "flex", flexDirection: "column",
         boxShadow: hov
-          ? `0 0 0 1px ${plan.color}60, 0 16px 50px ${plan.color}25, 0 0 80px rgba(0,0,0,0.6)`
+          ? `0 0 0 1px ${plan.color}50, 0 12px 40px ${plan.color}20, 0 0 60px rgba(0,0,0,0.5)`
           : plan.featured
-            ? `0 8px 40px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.06)`
-            : `0 4px 24px rgba(0,0,0,0.4)`,
-        animation: `fadeUp 0.6s ease ${delay}s both`,
+            ? `0 6px 30px rgba(99,102,241,0.15)`
+            : `0 4px 20px rgba(0,0,0,0.3)`,
+        animation: `fadeUp 0.5s ease ${delay}s both`,
         cursor: "pointer",
         position: "relative", overflow: "hidden",
       }}
@@ -380,62 +477,63 @@ function PlanCard({ plan, onSelect, delay }) {
         <div style={{
           position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
           background: C.grad, color: "#fff",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.25em",
-          fontFamily: "'Orbitron',monospace",
-          padding: "5px 20px", borderRadius: "0 0 12px 12px",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.15em",
+          fontFamily: "system-ui, sans-serif",
+          padding: "4px 16px", borderRadius: "0 0 10px 10px",
         }}>MOST POPULAR</div>
       )}
 
-      {/* Glow line top */}
-      <div style={{
-        position: "absolute", top: 0, left: "20%", right: "20%", height: 1,
-        background: `linear-gradient(90deg, transparent, ${plan.color}80, transparent)`,
-        opacity: hov ? 1 : 0.4, transition: "opacity 0.3s",
-      }} />
-
-      <div style={{ marginTop: plan.featured ? 16 : 0 }}>
+      <div style={{ marginTop: plan.featured ? 12 : 0 }}>
         <div style={{
-          fontSize: 11, letterSpacing: "0.2em", color: plan.color,
-          fontFamily: "'Orbitron',monospace", marginBottom: 6, fontWeight: 700,
+          fontSize: 12, letterSpacing: "0.1em", color: plan.color,
+          fontFamily: "system-ui, sans-serif", marginBottom: 4, fontWeight: 700,
         }}>{plan.name.toUpperCase()}</div>
-        <div style={{ fontSize: 12, color: C.muted, fontFamily: "system-ui", marginBottom: 20 }}>
+        <div style={{ fontSize: 12, color: C.muted, fontFamily: "system-ui, sans-serif", marginBottom: 16 }}>
           {plan.tagline}
         </div>
 
-        <div style={{ display:"flex", alignItems:"baseline", gap:6, marginBottom: 8 }}>
-          <span style={{
-            fontSize: 40, fontWeight: 900,
-            fontFamily: "'Orbitron',monospace", color: C.text,
-          }}>${plan.price.toLocaleString()}</span>
+        <div style={{ display:"flex", flexDirection:"column", gap:2, marginBottom: 8 }}>
+          <div style={{ display:"flex", alignItems:"baseline", gap:6 }}>
+            <span style={{
+              fontSize: converted.code === "NGN" || converted.code === "JPY" || converted.code === "INR" ? 28 : 32,
+              fontWeight: 800,
+              fontFamily: "'Orbitron', sans-serif", color: C.text,
+            }}>{converted.formatted}</span>
+          </div>
+          {!converted.isNormal && (
+            <div style={{ fontSize: 11, color: C.dim, fontFamily: "system-ui, sans-serif" }}>
+              ≈ ${plan.price.toLocaleString()} USD base rate
+            </div>
+          )}
         </div>
-        <div style={{ fontSize:12, color:C.dim, fontFamily:"system-ui", marginBottom:24 }}>
-          {plan.duration} &nbsp;·&nbsp; {plan.bots} {plan.bots === "Unlimited" ? "bots" : "chatbots"} &nbsp;·&nbsp; {plan.messages} messages
+        <div style={{ fontSize:12, color:C.muted, fontFamily:"system-ui, sans-serif", marginBottom:20, marginTop: 4 }}>
+          {plan.duration} &nbsp;·&nbsp; {plan.bots} {plan.bots === "Unlimited" ? "bots" : "chatbots"} &nbsp;·&nbsp; {plan.messages} msgs
         </div>
 
-        <ul style={{ listStyle:"none", marginBottom:28 }}>
+        <ul style={{ listStyle:"none", marginBottom:24 }}>
           {plan.features.map(f => (
             <li key={f} style={{
-              display:"flex", alignItems:"center", gap:10,
-              fontSize:13, color: C.muted, fontFamily:"system-ui",
-              padding:"5px 0", borderBottom:`1px solid rgba(255,255,255,0.04)`,
+              display:"flex", alignItems:"center", gap:8,
+              fontSize:12, color: C.muted, fontFamily:"system-ui, sans-serif",
+              padding:"5px 0", borderBottom:`1px solid rgba(255,255,255,0.03)`,
             }}>
-              <span style={{ color:"#4ade80", fontSize:12, flexShrink:0 }}>✓</span>
-              {f}
+              <Check size={13} style={{ color:"#10b981", flexShrink:0 }} />
+              <span>{f}</span>
             </li>
           ))}
         </ul>
 
         <button style={{
-          width: "100%", padding: "14px 0",
-          background: plan.featured ? C.grad : `${plan.color}18`,
-          border: plan.featured ? "none" : `1px solid ${plan.color}45`,
-          borderRadius: 12, color: "#fff",
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.2em",
-          fontFamily: "'Orbitron',monospace", cursor: "pointer",
-          boxShadow: plan.featured ? `0 4px 20px ${plan.color}50` : "none",
+          width: "100%", padding: "12px 0",
+          background: plan.featured ? C.grad : `${plan.color}15`,
+          border: plan.featured ? "none" : `1px solid ${plan.color}35`,
+          borderRadius: 10, color: "#fff",
+          fontSize: 12, fontWeight: 600, letterSpacing: "0.05em",
+          fontFamily: "system-ui, sans-serif", cursor: "pointer",
+          boxShadow: plan.featured ? `0 4px 16px ${plan.color}40` : "none",
           transition: "all 0.2s",
         }}>
-          Get Started →
+          Select Plan
         </button>
       </div>
     </div>

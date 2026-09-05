@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Bot, Phone, Send } from "lucide-react";
 
 const API = "";
 
@@ -20,7 +21,7 @@ export default function BotPage({ botId }) {
         setBot(data);
         setMessages([{
           role: "bot",
-          text: `Hi! I'm ${data.name}. Ask me anything and I'll do my best to help! 👋`,
+          text: `Hello! I'm ${data.name}. How can I assist you today?`,
         }]);
       })
       .catch(() => setNotFound(true))
@@ -70,8 +71,8 @@ export default function BotPage({ botId }) {
 
   if (notFound) return (
     <div style={fullPage}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🤖</div>
+      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <Bot size={44} style={{ color: "#6366f1", marginBottom: 16 }} />
         <div style={{ color: "#fff", fontFamily: "'Orbitron', monospace", fontSize: 14, letterSpacing: "0.15em", marginBottom: 8 }}>
           BOT NOT FOUND
         </div>
@@ -100,9 +101,11 @@ export default function BotPage({ botId }) {
           width: 40, height: 40, borderRadius: 12,
           background: "linear-gradient(135deg, #3b82f6, #6366f1)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 18, flexShrink: 0,
+          flexShrink: 0,
           boxShadow: "0 0 16px rgba(99,102,241,0.4)",
-        }}>🤖</div>
+        }}>
+          <Bot size={20} color="#ffffff" />
+        </div>
         <div>
           <div style={{
             fontFamily: "'Orbitron', monospace", fontWeight: 700, fontSize: isWidget ? 12 : 14,
@@ -135,8 +138,9 @@ export default function BotPage({ botId }) {
                 width: 30, height: 30, borderRadius: 8, flexShrink: 0,
                 background: "linear-gradient(135deg, #3b82f6, #6366f1)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14,
-              }}>🤖</div>
+              }}>
+                <Bot size={15} color="#ffffff" />
+              </div>
             )}
             <div style={{ maxWidth: "75%" }}>
               <div style={{
@@ -169,7 +173,8 @@ export default function BotPage({ botId }) {
                     textDecoration: "none", letterSpacing: "0.05em",
                     boxShadow: "0 2px 12px rgba(34,197,94,0.3)",
                   }}>
-                    📞 Contact Support
+                    <Phone size={13} />
+                    <span>Contact Support</span>
                   </a>
                 );
               })()}
@@ -183,8 +188,10 @@ export default function BotPage({ botId }) {
             <div style={{
               width: 30, height: 30, borderRadius: 8, flexShrink: 0,
               background: "linear-gradient(135deg, #3b82f6, #6366f1)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
-            }}>🤖</div>
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Bot size={15} color="#ffffff" />
+            </div>
             <div style={{
               padding: "12px 18px",
               background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
@@ -262,9 +269,12 @@ export default function BotPage({ botId }) {
                 : "rgba(255,255,255,0.05)",
               color: input.trim() && !typing ? "#fff" : "#334155",
               cursor: input.trim() && !typing ? "pointer" : "default",
-              fontSize: 18, transition: "all 0.2s", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s", flexShrink: 0,
             }}
-          >➤</button>
+          >
+            <Send size={15} />
+          </button>
         </div>
         <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#1e293b", letterSpacing: "0.1em" }}>
           Powered by <span style={{ color: "#6366f1" }}>AXXON OS</span>

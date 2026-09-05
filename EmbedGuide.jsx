@@ -15,57 +15,58 @@
  *   compact  — bool    (optional, tighter layout for the bot-list cards)
  */
 import { useState } from "react";
+import { Globe, ShoppingBag, Layout, Code, Link, ExternalLink, FileCode, Sparkles, Copy, Check } from "lucide-react";
 import { C, Card3D, globalCSS } from "./theme.jsx";
 
 const PLATFORMS = [
-  { id: "wordpress",   label: "WordPress",   icon: "🔵" },
-  { id: "shopify",     label: "Shopify",      icon: "🟢" },
-  { id: "wix",         label: "Wix",          icon: "🟣" },
-  { id: "squarespace", label: "Squarespace",  icon: "⬛" },
-  { id: "html",        label: "Custom HTML",  icon: "🌐" },
+  { id: "wordpress",   label: "WordPress",   icon: <Layout size={14} /> },
+  { id: "shopify",     label: "Shopify",      icon: <ShoppingBag size={14} /> },
+  { id: "wix",         label: "Wix",          icon: <Layout size={14} /> },
+  { id: "squarespace", label: "Squarespace",  icon: <Layout size={14} /> },
+  { id: "html",        label: "Custom HTML",  icon: <Globe size={14} /> },
 ];
 
 function getSteps(platform, snippet) {
   switch (platform) {
     case "wordpress":
       return [
-        { icon: "1️⃣", text: 'Log in to your WordPress admin panel (your-site.com/wp-admin).' },
-        { icon: "2️⃣", text: 'Install the free plugin "Insert Headers and Footers" — search for it under Plugins → Add New.' },
-        { icon: "3️⃣", text: 'Go to Settings → Insert Headers and Footers.' },
-        { icon: "4️⃣", text: 'Paste the code (below) into the "Scripts in Footer" box.' },
-        { icon: "5️⃣", text: 'Click Save. Your chatbot will appear on every page of your site immediately.' },
+        { text: 'Log in to your WordPress admin panel (your-site.com/wp-admin).' },
+        { text: 'Install the free plugin "Insert Headers and Footers" — search for it under Plugins → Add New.' },
+        { text: 'Go to Settings → Insert Headers and Footers.' },
+        { text: 'Paste the code (below) into the "Scripts in Footer" box.' },
+        { text: 'Click Save. Your chatbot will appear on every page of your site immediately.' },
       ];
     case "shopify":
       return [
-        { icon: "1️⃣", text: 'In your Shopify admin, go to Online Store → Themes.' },
-        { icon: "2️⃣", text: 'Click the three-dot menu next to your active theme, then "Edit code".' },
-        { icon: "3️⃣", text: 'In the left sidebar, open the Layout folder and click "theme.liquid".' },
-        { icon: "4️⃣", text: 'Scroll to the very bottom and find the </body> tag.' },
-        { icon: "5️⃣", text: 'Paste the code (below) on the line just above </body>.' },
-        { icon: "6️⃣", text: 'Click Save. Your chatbot is now live on your Shopify store.' },
+        { text: 'In your Shopify admin, go to Online Store → Themes.' },
+        { text: 'Click the three-dot menu next to your active theme, then "Edit code".' },
+        { text: 'In the left sidebar, open the Layout folder and click "theme.liquid".' },
+        { text: 'Scroll to the very bottom and find the </body> tag.' },
+        { text: 'Paste the code (below) on the line just above </body>.' },
+        { text: 'Click Save. Your chatbot is now live on your Shopify store.' },
       ];
     case "wix":
       return [
-        { icon: "1️⃣", text: 'Open your Wix Editor and go to Settings (gear icon in the top menu).' },
-        { icon: "2️⃣", text: 'Click "Custom Code" → "+ Add Custom Code".' },
-        { icon: "3️⃣", text: 'Paste the code (below) into the code box.' },
-        { icon: "4️⃣", text: 'Set "Add Code to Pages" to "All Pages" and "Place Code in" to "Body — end".' },
-        { icon: "5️⃣", text: 'Click Apply, then Publish your site. Done!' },
+        { text: 'Open your Wix Editor and go to Settings (gear icon in the top menu).' },
+        { text: 'Click "Custom Code" → "+ Add Custom Code".' },
+        { text: 'Paste the code (below) into the code box.' },
+        { text: 'Set "Add Code to Pages" to "All Pages" and "Place Code in" to "Body — end".' },
+        { text: 'Click Apply, then Publish your site. Done!' },
       ];
     case "squarespace":
       return [
-        { icon: "1️⃣", text: 'In your Squarespace dashboard, go to Settings → Advanced → Code Injection.' },
-        { icon: "2️⃣", text: 'Find the "Footer" text box at the bottom of that page.' },
-        { icon: "3️⃣", text: 'Paste the code (below) into the Footer box.' },
-        { icon: "4️⃣", text: 'Click Save. Your chatbot will appear on every page automatically.' },
+        { text: 'In your Squarespace dashboard, go to Settings → Advanced → Code Injection.' },
+        { text: 'Find the "Footer" text box at the bottom of that page.' },
+        { text: 'Paste the code (below) into the Footer box.' },
+        { text: 'Click Save. Your chatbot will appear on every page automatically.' },
       ];
     default: // html
       return [
-        { icon: "1️⃣", text: 'Open your website\'s main HTML file (often called index.html) in any text editor.' },
-        { icon: "2️⃣", text: 'Use Ctrl+F (or Cmd+F on Mac) to search for the text: </body>' },
-        { icon: "3️⃣", text: 'Paste the code (below) on the line directly above </body>.' },
-        { icon: "4️⃣", text: 'Save the file and upload it back to your hosting provider.' },
-        { icon: "5️⃣", text: 'Refresh your website — the chat widget will appear in the bottom-right corner.' },
+        { text: 'Open your website\'s main HTML file (often called index.html) in any text editor.' },
+        { text: 'Use Ctrl+F (or Cmd+F on Mac) to search for the text: </body>' },
+        { text: 'Paste the code (below) on the line directly above </body>.' },
+        { text: 'Save the file and upload it back to your hosting provider.' },
+        { text: 'Refresh your website — the chat widget will appear in the bottom-right corner.' },
       ];
   }
 }
@@ -106,21 +107,21 @@ export default function EmbedGuide({ botId, botName, baseUrl, compact = false })
             onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
             onMouseLeave={e => e.currentTarget.style.transform = "none"}
           >
-            🚀 Test Bot
+            <ExternalLink size={13} /> Test Bot
           </a>
 
           <button
             onClick={() => copy(botUrl, setCopiedLink)}
             style={smallCopyBtn(copiedLink)}
           >
-            {copiedLink ? "✓ Link Copied!" : "🔗 Copy Link"}
+            {copiedLink ? <><Check size={12} /> Link Copied!</> : <><Link size={12} /> Copy Link</>}
           </button>
 
           <button
             onClick={() => copy(snippet, setCopiedCode)}
             style={smallCopyBtn(copiedCode, true)}
           >
-            {copiedCode ? "✓ Code Copied!" : "💻 Copy Embed Code"}
+            {copiedCode ? <><Check size={12} /> Code Copied!</> : <><Code size={12} /> Copy Embed Code</>}
           </button>
 
           <button
@@ -130,9 +131,10 @@ export default function EmbedGuide({ botId, botName, baseUrl, compact = false })
               borderRadius: 8, color: C.muted, cursor: "pointer",
               fontSize: 11, padding: "8px 14px", fontFamily: "system-ui",
               transition: "all 0.2s",
+              display: "inline-flex", alignItems: "center", gap: 5
             }}
           >
-            {open ? "▲ Less" : "📋 How to add to my site"}
+            {open ? "▲ Less" : <><FileCode size={12} /> How to add to my site</>}
           </button>
         </div>
 
@@ -152,7 +154,9 @@ export default function EmbedGuide({ botId, botName, baseUrl, compact = false })
         border: "1px solid rgba(34,197,94,0.25)",
         borderRadius: 16, padding: "18px 22px", marginBottom: 24,
       }}>
-        <div style={{ fontSize: 32 }}>🎉</div>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <Sparkles size={28} color="#4ade80" />
+        </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "system-ui", marginBottom: 3 }}>
             {botName} is live!
@@ -174,14 +178,14 @@ export default function EmbedGuide({ botId, botName, baseUrl, compact = false })
           onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(34,197,94,0.45)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(34,197,94,0.35)"; }}
         >
-          🚀 Test Your Bot →
+          <ExternalLink size={14} /> Test Your Bot →
         </a>
       </div>
 
       {/* Direct link */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.15em", fontFamily: "'Orbitron',monospace", marginBottom: 10 }}>
-          🔗 SHAREABLE LINK
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.15em", fontFamily: "'Orbitron',monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <Link size={12} color={C.indigo} /> SHAREABLE LINK
         </div>
         <div style={{
           display: "flex", gap: 10, alignItems: "center",
@@ -221,8 +225,8 @@ function InstallGuide({ platform, setPlatform, steps, snippet, copiedCode, onCop
       border: `1px solid rgba(99,102,241,0.18)`,
       borderRadius: 16, padding: "20px 22px",
     }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "system-ui", marginBottom: 4 }}>
-        📋 Add to your website
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "system-ui", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+        <FileCode size={14} color={C.indigo} /> Add to your website
       </div>
       <div style={{ fontSize: 12, color: C.muted, fontFamily: "system-ui", marginBottom: 18 }}>
         Pick your website platform and follow the steps — no coding knowledge needed.
@@ -257,7 +261,7 @@ function InstallGuide({ platform, setPlatform, steps, snippet, copiedCode, onCop
       </div>
 
       {/* Steps */}
-      <ol style={{ listStyle: "none", marginBottom: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+      <ol style={{ listStyle: "none", marginBottom: 22, display: "flex", flexDirection: "column", gap: 10, padding: 0 }}>
         {steps.map((step, i) => (
           <li key={i} style={{
             display: "flex", gap: 12, alignItems: "flex-start",
@@ -279,8 +283,8 @@ function InstallGuide({ platform, setPlatform, steps, snippet, copiedCode, onCop
 
       {/* Code snippet + big copy button */}
       <div style={{ marginBottom: 6 }}>
-        <div style={{ fontSize: 11, color: C.muted, fontFamily: "system-ui", marginBottom: 10 }}>
-          👇 <strong style={{ color: C.text }}>Copy this code</strong> and paste it where the instructions above say:
+        <div style={{ fontSize: 11, color: C.muted, fontFamily: "system-ui", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <Code size={13} color={C.indigo} /> <strong style={{ color: C.text }}>Copy this code</strong> and paste it where the instructions above say:
         </div>
         <div style={{
           background: "rgba(0,0,0,0.5)", border: `1px solid rgba(99,102,241,0.25)`,
@@ -302,7 +306,13 @@ function InstallGuide({ platform, setPlatform, steps, snippet, copiedCode, onCop
             padding: "10px 18px", gap: 12, flexWrap: "wrap",
           }}>
             <span style={{ fontSize: 11, color: C.dim, fontFamily: "system-ui" }}>
-              {copiedCode ? "✅ Copied to clipboard!" : "Click the button to copy the code →"}
+              {copiedCode ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#22c55e" }}>
+                  <Check size={12} /> Copied to clipboard!
+                </span>
+              ) : (
+                "Click the button to copy the embed snippet"
+              )}
             </span>
             <button
               onClick={onCopyCode}
@@ -321,7 +331,7 @@ function InstallGuide({ platform, setPlatform, steps, snippet, copiedCode, onCop
                 display: "flex", alignItems: "center", gap: 7,
               }}
             >
-              {copiedCode ? "✓ Copied!" : "📋 Copy Code"}
+              {copiedCode ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Code</>}
             </button>
           </div>
         </div>
@@ -363,7 +373,7 @@ function BigCopyBtn({ copied, onClick, label }) {
         display: "flex", alignItems: "center", gap: 6,
       }}
     >
-      {copied ? "✓ Copied!" : `📋 ${label}`}
+      {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> {label}</>}
     </button>
   );
 }

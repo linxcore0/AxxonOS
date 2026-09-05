@@ -236,7 +236,9 @@
           <span class="axxon-status-dot"></span> Online
         </div>
       </div>
-      <button class="axxon-close" id="axxon-close-btn" aria-label="Close chat">✕</button>
+      <button class="axxon-close" id="axxon-close-btn" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
     </div>
     <div class="axxon-messages" id="axxon-messages"></div>
     <div class="axxon-input-row">
@@ -293,7 +295,7 @@
     if (showHandoff) {
       const hBtn = document.createElement("button");
       hBtn.className = "axxon-handoff-btn";
-      hBtn.innerHTML = "🤝 Talk to a Live Agent";
+      hBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> <span>Talk to a Live Agent</span>`;
       hBtn.addEventListener("click", routeToHuman);
       wrap.appendChild(hBtn);
     }
@@ -390,7 +392,7 @@
           cBtn.rel = "noreferrer";
           cBtn.className = "axxon-handoff-btn";
           cBtn.style.cssText = "display:inline-flex;align-items:center;gap:6px;margin-top:8px;text-decoration:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;";
-          cBtn.innerHTML = "📞 Contact Support";
+          cBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> <span>Contact Support</span>`;
           lastWrap.appendChild(cBtn);
         }
       }
@@ -414,7 +416,7 @@
 
     if (open && messagesEl.children.length === 0) {
       setTimeout(() => {
-        addMessage("bot", `👋 Hi! I'm ${botName}. Ask me anything or pick a question below.`);
+        addMessage("bot", `Hello! I'm ${botName}. How can I help you today?`);
         // Show suggestion chips after greeting
         if (!suggestionsShown && botFaqs.length > 0) {
           suggestionsShown = true;
